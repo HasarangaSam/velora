@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import WishlistButton from "@/components/shop/WishlistButton";
 
 type ProductCardProps = {
   product: {
@@ -15,6 +16,7 @@ type ProductCardProps = {
     priceFrom: string | null;
     totalStock: number;
   };
+  isSaved?: boolean;
 };
 
 function formatPrice(price: string | null) {
@@ -28,9 +30,9 @@ function formatPrice(price: string | null) {
   })}`;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, isSaved = false }: ProductCardProps) {
   return (
-    <article className="group min-w-0">
+    <article className="group relative min-w-0">
       <Link href={`/products/${product.slug}`} className="block">
         <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-stone-100">
           {product.image ? (
@@ -68,6 +70,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </p>
         </div>
       </Link>
+      <WishlistButton productId={product.id} productName={product.name} initialSaved={isSaved} />
     </article>
   );
 }

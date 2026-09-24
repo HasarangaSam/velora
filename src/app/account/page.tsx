@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Package,
   UserRound,
+  Heart,
+  MessageSquareText,
 } from "lucide-react";
 
 export default async function AccountPage() {
@@ -18,7 +20,7 @@ export default async function AccountPage() {
     redirect("/login?callbackUrl=/account");
   }
 
-  const [orders, addressCount] = await Promise.all([
+  const [orders, addressCount, wishlistCount, reviewCount] = await Promise.all([
     prisma.order.findMany({
       where: { userId: session.user.id },
       take: 5,
@@ -30,6 +32,8 @@ export default async function AccountPage() {
     prisma.address.count({
       where: { userId: session.user.id },
     }),
+    prisma.wishlistItem.count({ where: { userId: session.user.id, product: { isActive: true } } }),
+    prisma.productReview.count({ where: { userId: session.user.id } }),
   ]);
 
   return (
@@ -68,7 +72,7 @@ export default async function AccountPage() {
         </div>
 
         {/* Quick Nav Cards */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             href="/account/profile"
             className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-stone-400 hover:shadow-md"
@@ -81,6 +85,32 @@ export default async function AccountPage() {
             </div>
             <h2 className="mt-4 text-lg font-bold text-slate-900">Profile & security</h2>
             <p className="mt-1 text-xs text-slate-500">Update your name, change your password, or close your account.</p>
+          </Link>
+
+          <Link
+            href="/account/reviews"
+            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-blue-300 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600"><MessageSquareText size={20} /></div>
+              <span className="text-xs font-semibold text-blue-600 transition-transform group-hover:translate-x-1">Manage →</span>
+            </div>
+            <h2 className="mt-4 text-lg font-bold text-slate-900">My Reviews</h2>
+            <p className="mt-1 text-xs text-slate-500">{reviewCount} {reviewCount === 1 ? "review" : "reviews"} shared with the community.</p>
+          </Link>
+
+          <Link
+            href="/account/wishlist"
+            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-rose-300 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                <Heart size={20} />
+              </div>
+              <span className="text-xs font-semibold text-rose-600 transition-transform group-hover:translate-x-1">View →</span>
+            </div>
+            <h2 className="mt-4 text-lg font-bold text-slate-900">My Wishlist</h2>
+            <p className="mt-1 text-xs text-slate-500">{wishlistCount} saved {wishlistCount === 1 ? "item" : "items"} to come back to.</p>
           </Link>
 
           <Link

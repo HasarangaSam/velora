@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import ProductGallery from "@/components/shop/ProductGallery";
 import ProductPurchase from "@/components/shop/ProductPurchase";
 import { getProductBySlug } from "@/lib/product";
+import WishlistButton from "@/components/shop/WishlistButton";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db/prisma";
+import ProductReviews from "@/components/shop/ProductReviews";
 
 type ProductPageProps = {
   params: Promise<{
@@ -35,6 +39,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (!product) {
     notFound();
   }
+
+  const session = await auth();
+  const saved = session?.user?.id
+    ? Boolean(await prisma.wishlistItem.findUnique({
+        where: { userId_productId: { userId: session.user.id, productId: product.id } },
+        select: { id: true },
+      }))
+    : false;
 
   const variants = product.variants.map((variant) => ({
     id: variant.id,
@@ -100,6 +112,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {product.name}
             </h1>
 
+            <div className="mt-5 max-w-xs">
+              <WishlistButton productId={product.id} productName={product.name} initialSaved={saved} variant="label" />
+            </div>
+
             <div className="mt-6 whitespace-pre-line text-base leading-7 text-slate-600">
               {product.description}
             </div>
@@ -127,6 +143,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
         </div>
+
+        <ProductReviews productId={product.id} productSlug={product.slug} userId={session?.user?.id} />
       </div>
     </main>
   );

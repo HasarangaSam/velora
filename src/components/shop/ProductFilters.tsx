@@ -1,8 +1,9 @@
 "use client";
 
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import ProductSearchInput from "@/components/shop/ProductSearchInput";
 
 type SubCategory = {
   name: string;
@@ -24,6 +25,11 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const searchParamsString = searchParams.toString();
+
+  useEffect(() => {
+    setSearch(new URLSearchParams(searchParamsString).get("search") ?? "");
+  }, [searchParamsString]);
 
   const category = searchParams.get("category") ?? "";
   const sort = searchParams.get("sort") ?? "newest";
@@ -46,13 +52,17 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
     router.push(`/shop?${params.toString()}`);
   }
 
-  function handleSearch(event: React.FormEvent) {
-    event.preventDefault();
-
-    updateFilters({
-      search,
-    });
-  }
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(searchParamsString);
+      if (search.trim()) params.set("search", search.trim());
+      else params.delete("search");
+      params.delete("page");
+      const next = params.toString();
+      if (next !== searchParamsString) router.replace(`/shop${next ? `?${next}` : ""}`, { scroll: false });
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [router, search, searchParamsString]);
 
   const activeCollection = categories.find((item) =>
     item.slug === category || item.children?.some((child) => child.slug === category),
@@ -67,26 +77,8 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-        <form onSubmit={handleSearch}>
-          <label
-            htmlFor="search"
-            className="mb-2 block text-xs font-medium text-slate-600"
-          >
-            Search
-          </label>
-
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-            <input
-              id="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search products..."
-              className="w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
-            />
-          </div>
-        </form>
+        <ProductSearchInput id="search" label="Search" value={search} onChange={setSearch}
+          onSubmit={(value) => { setSearch(value); updateFilters({ search: value.trim() }); }} />
 
         <div>
           <label

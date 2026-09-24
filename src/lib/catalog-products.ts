@@ -148,6 +148,13 @@ export async function getCatalogProducts(
         name: "asc" as const,
       };
       break;
+    case "price-low":
+    case "price-high":
+      // Price sorting is based on each product's lowest in-stock variant (the
+      // same price shown on product cards). Sort before pagination so pages
+      // remain globally ordered.
+      orderBy = { createdAt: "desc" as const };
+      break;
 
     default:
       orderBy = {
@@ -157,6 +164,7 @@ export async function getCatalogProducts(
 
   const skip = (query.page - 1) * PRODUCTS_PER_PAGE;
 
+  const isPriceSort = query.sort === "price-low" || query.sort === "price-high";
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
@@ -198,8 +206,7 @@ export async function getCatalogProducts(
         },
       },
       orderBy,
-      skip,
-      take: PRODUCTS_PER_PAGE,
+      ...(isPriceSort ? {} : { skip, take: PRODUCTS_PER_PAGE }),
     }),
 
     prisma.product.count({
@@ -207,8 +214,19 @@ export async function getCatalogProducts(
     }),
   ]);
 
+  if (isPriceSort) {
+    products.sort((a, b) => {
+      const aPrice = a.variants[0]?.price.toNumber() ?? 0;
+      const bPrice = b.variants[0]?.price.toNumber() ?? 0;
+      return query.sort === "price-low" ? aPrice - bPrice : bPrice - aPrice;
+    });
+  }
+  const pageProducts = isPriceSort
+    ? products.slice(skip, skip + PRODUCTS_PER_PAGE)
+    : products;
+
   const result = {
-    products: products.map((product) => ({
+    products: pageProducts.map((product) => ({
       id: product.id,
       name: product.name,
       slug: product.slug,

@@ -9,13 +9,14 @@ import LogoutButton from "@/components/auth/LogoutButton";
 import {
   ShoppingCart,
   User,
-  Search,
   Menu,
   X,
   ShieldCheck,
   ChevronDown,
   ShoppingBag,
+  Heart,
 } from "lucide-react";
+import ProductSearchInput from "@/components/shop/ProductSearchInput";
 
 export default function Navbar() {
   const router = useRouter();
@@ -47,14 +48,6 @@ export default function Navbar() {
   }
 
   const allProductsActive = pathname === "/shop" && !selectedCategory;
-
-  function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
-      setMobileMenuOpen(false);
-    }
-  }
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -111,24 +104,11 @@ export default function Navbar() {
           </nav>
 
           {/* Search Bar */}
-          <form
-            onSubmit={handleSearchSubmit}
-            className="hidden lg:flex items-center relative flex-1 max-w-xs"
-          >
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-full border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white transition"
-            />
-            <Search
-              size={15}
-              className="absolute left-3 text-slate-400 pointer-events-none"
-            />
-          </form>
+          <ProductSearchInput value={searchQuery} onChange={setSearchQuery} onSubmit={(value) => {
+            if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
+          }} className="hidden lg:block flex-1 max-w-xs" inputClassName="rounded-full bg-slate-50 py-2 text-xs focus:border-blue-600 focus:bg-white" />
 
-          {/* Actions: Account & Cart */}
+          {/* Actions: Account, Wishlist & Cart */}
           <div className="flex items-center gap-4">
             {/* User Account / Dropdown */}
             {session?.user ? (
@@ -208,6 +188,17 @@ export default function Navbar() {
               </div>
             )}
 
+            {/* Wishlist Button */}
+            <Link
+              href="/account/wishlist"
+              aria-current={pathname === "/account/wishlist" ? "page" : undefined}
+              aria-label="View wishlist"
+              title="Wishlist"
+              className={`relative p-2 transition ${pathname === "/account/wishlist" ? "text-rose-600" : "text-slate-700 hover:text-rose-600"}`}
+            >
+              <Heart size={21} strokeWidth={1.8} />
+            </Link>
+
             {/* Cart Button */}
             <Link
               href="/cart"
@@ -228,19 +219,10 @@ export default function Navbar() {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-4">
-          <form onSubmit={handleSearchSubmit} className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products..."
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-blue-600"
-            />
-            <Search
-              size={15}
-              className="absolute left-3 top-2.5 text-slate-400 pointer-events-none"
-            />
-          </form>
+          <ProductSearchInput value={searchQuery} onChange={setSearchQuery} onSubmit={(value) => {
+            if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
+            setMobileMenuOpen(false);
+          }} inputClassName="text-xs" />
 
           <nav className="flex flex-col space-y-1 text-sm font-medium">
             <Link

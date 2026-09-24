@@ -10,6 +10,7 @@ import {
   Users,
   ArrowLeft,
   ShieldCheck,
+  MessageSquareText,
 } from "lucide-react";
 
 export default async function AdminLayout({
@@ -90,6 +91,14 @@ export default async function AdminLayout({
           >
             <Users size={18} />
             Customers & Roles
+          </Link>
+
+          <Link
+            href="/admin/reviews"
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
+          >
+            <MessageSquareText size={18} />
+            Product Reviews
           </Link>
         </nav>
 

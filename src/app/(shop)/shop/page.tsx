@@ -3,6 +3,7 @@ import ProductFilters from "@/components/shop/ProductFilters";
 import ProductPagination from "@/components/shop/ProductPagination";
 import { getCatalogProducts } from "@/lib/catalog-products";
 import { prisma } from "@/lib/db/prisma";
+import { auth } from "@/auth";
 
 type ShopPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -19,7 +20,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const getValue = (value: string | string[] | undefined) =>
     Array.isArray(value) ? value[0] : value;
 
-  const [catalog, categories] = await Promise.all([
+  const [catalog, categories, session] = await Promise.all([
     getCatalogProducts({
       search: getValue(params.search),
       category: getValue(params.category),
@@ -46,7 +47,15 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         },
       },
     }),
+    auth(),
   ]);
+
+  const savedProductIds = session?.user?.id && catalog.products.length > 0
+    ? new Set((await prisma.wishlistItem.findMany({
+        where: { userId: session.user.id, productId: { in: catalog.products.map((product) => product.id) } },
+        select: { productId: true },
+      })).map((item) => item.productId))
+    : new Set<string>();
 
   const selectedCategory = getValue(params.category);
   const selectedCategoryName = categories
@@ -89,7 +98,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           <>
             <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4">
               {catalog.products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} isSaved={savedProductIds.has(product.id)} />
               ))}
             </div>
 
