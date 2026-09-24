@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
 import { calculateOrderTotals } from "@/lib/order";
@@ -276,13 +277,24 @@ export async function POST(request: Request) {
           orderNumber: generateOrderNumber(),
           userId: user.id,
           addressId: address.id,
+
           status: "PENDING",
           paymentStatus: "PENDING",
+
+          shippingFullName: address.fullName,
+          shippingPhone: address.phone,
+          shippingAddressLine1: address.addressLine1,
+          shippingAddressLine2: address.addressLine2 || null,
+          shippingCity: address.city,
+          shippingDistrict: address.district,
+          shippingPostalCode: address.postalCode,
+
           subtotal: totals.subtotal,
           discount: totals.discount,
           shippingCost: totals.shippingCost,
           total: totals.total,
           couponCode: totals.couponCode,
+
           items: {
             create: cart.items.map((item) => ({
               productId: item.productId,
@@ -294,6 +306,7 @@ export async function POST(request: Request) {
               quantity: item.quantity,
             })),
           },
+
           payment: {
             create: {
               amount: totals.total,

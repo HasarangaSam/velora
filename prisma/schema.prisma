@@ -199,6 +199,14 @@ model Order {
   status        OrderStatus   @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)
 
+  shippingFullName     String
+  shippingPhone        String
+  shippingAddressLine1 String
+  shippingAddressLine2 String?
+  shippingCity         String
+  shippingDistrict     String
+  shippingPostalCode   String
+
   subtotal     Decimal @db.Decimal(10, 2)
   discount     Decimal @default(0) @db.Decimal(10, 2)
   shippingCost Decimal @default(0) @db.Decimal(10, 2)
@@ -241,13 +249,13 @@ model OrderItem {
 }
 
 model Payment {
-  id            String        @id @default(cuid())
-  orderId       String        @unique
-  status        PaymentStatus @default(PENDING)
-  amount        Decimal       @db.Decimal(10, 2)
-  currency      String        @default("LKR")
-  provider      String        @default("PAYHERE")
-  providerId    String?
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  status          PaymentStatus @default(PENDING)
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("LKR")
+  provider        String        @default("PAYHERE")
+  providerId      String?       @unique
   providerOrderId String?
 
   createdAt DateTime @default(now())
@@ -255,7 +263,6 @@ model Payment {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@index([providerId])
   @@index([providerOrderId])
 }
 
@@ -293,6 +300,6 @@ model CouponUsage {
   coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([couponId, userId])
   @@index([userId])
+  @@index([couponId, userId])
 }
