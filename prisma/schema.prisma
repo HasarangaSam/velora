@@ -81,33 +81,41 @@ model Category {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
+  parentId  String?  // null = top-level; set = sub-category
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  products Product[]
+  parent      Category?  @relation("SubCategories", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("SubCategories")
+  products    Product[]  @relation("ProductCategory")
+  subProducts Product[]  @relation("ProductSubCategory")
 
   @@index([name])
+  @@index([parentId])
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String   @db.Text
-  categoryId  String
-  isActive    Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  description     String   @db.Text
+  categoryId      String
+  subCategoryId   String?  // optional sub-category within main category
+  isActive        Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  category Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  images   ProductImage[]
-  variants ProductVariant[]
-  cartItems CartItem[]
-  orderItems OrderItem[]
+  category    Category        @relation("ProductCategory",    fields: [categoryId],    references: [id], onDelete: Restrict)
+  subCategory Category?       @relation("ProductSubCategory", fields: [subCategoryId], references: [id], onDelete: SetNull)
+  images      ProductImage[]
+  variants    ProductVariant[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
 
   @@index([categoryId])
+  @@index([subCategoryId])
   @@index([isActive])
   @@index([isFeatured])
   @@index([createdAt])

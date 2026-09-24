@@ -11,6 +11,7 @@ export const productSchema = z.object({
   name: z.string().trim().min(2).max(150),
   description: z.string().trim().min(10).max(5000),
   categoryId: z.string().min(1),
+  subCategoryId: z.string().nullish(),
   isActive: z.boolean(),
   isFeatured: z.boolean(),
 });

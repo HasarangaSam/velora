@@ -106,6 +106,24 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
+    // Validate sub-category if provided
+    if (result.data.subCategoryId) {
+      const subCat = await prisma.category.findUnique({
+        where: { id: result.data.subCategoryId },
+        select: { parentId: true },
+      });
+
+      if (!subCat || subCat.parentId !== result.data.categoryId) {
+        return NextResponse.json(
+          {
+            message:
+              "Selected sub-category does not belong to the chosen main category.",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     const existingVariantIds = new Set(
       product.variants.map((variant) => variant.id),
     );
@@ -156,6 +174,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           name: result.data.name,
           description: result.data.description,
           categoryId: result.data.categoryId,
+          subCategoryId: result.data.subCategoryId ?? null,
           isActive: result.data.isActive,
           isFeatured: result.data.isFeatured,
         },

@@ -23,6 +23,10 @@ export type CatalogProduct = {
     name: string;
     slug: string;
   };
+  subCategory?: {
+    name: string;
+    slug: string;
+  } | null;
   image: string | null;
   priceFrom: string | null;
   totalStock: number;
@@ -69,57 +73,71 @@ export async function getCatalogProducts(
     console.error("Redis catalog read error:", error);
   }
 
-  const where = {
-    isActive: true,
+  const andConditions: Record<string, unknown>[] = [
+    { isActive: true },
+    {
+      variants: {
+        some: {
+          stock: {
+            gt: 0,
+          },
+          ...(query.minPrice !== undefined
+            ? {
+                price: {
+                  gte: query.minPrice,
+                },
+              }
+            : {}),
+          ...(query.maxPrice !== undefined
+            ? {
+                price: {
+                  lte: query.maxPrice,
+                },
+              }
+            : {}),
+        },
+      },
+    },
+  ];
 
-    ...(query.search
-      ? {
-          OR: [
-            {
-              name: {
-                contains: query.search,
-                mode: "insensitive" as const,
-              },
-            },
-            {
-              description: {
-                contains: query.search,
-                mode: "insensitive" as const,
-              },
-            },
-          ],
-        }
-      : {}),
+  if (query.search) {
+    andConditions.push({
+      OR: [
+        {
+          name: {
+            contains: query.search,
+            mode: "insensitive" as const,
+          },
+        },
+        {
+          description: {
+            contains: query.search,
+            mode: "insensitive" as const,
+          },
+        },
+      ],
+    });
+  }
 
-    ...(query.category
-      ? {
+  if (query.category) {
+    andConditions.push({
+      OR: [
+        {
           category: {
             slug: query.category,
           },
-        }
-      : {}),
-
-    variants: {
-      some: {
-        stock: {
-          gt: 0,
         },
-        ...(query.minPrice !== undefined
-          ? {
-              price: {
-                gte: query.minPrice,
-              },
-            }
-          : {}),
-        ...(query.maxPrice !== undefined
-          ? {
-              price: {
-                lte: query.maxPrice,
-              },
-            }
-          : {}),
-      },
-    },
+        {
+          subCategory: {
+            slug: query.category,
+          },
+        },
+      ],
+    });
+  }
+
+  const where = {
+    AND: andConditions,
   };
 
   let orderBy;
@@ -144,6 +162,12 @@ export async function getCatalogProducts(
       where,
       include: {
         category: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+        subCategory: {
           select: {
             name: true,
             slug: true,
@@ -189,6 +213,7 @@ export async function getCatalogProducts(
       name: product.name,
       slug: product.slug,
       category: product.category,
+      subCategory: product.subCategory,
       image: product.images[0]?.url ?? null,
       priceFrom: product.variants[0]?.price.toString() ?? null,
       totalStock: product.variants.reduce(

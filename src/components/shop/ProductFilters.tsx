@@ -4,9 +4,15 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
+type SubCategory = {
+  name: string;
+  slug: string;
+};
+
 type Category = {
   name: string;
   slug: string;
+  children?: SubCategory[];
 };
 
 type ProductFiltersProps = {
@@ -97,11 +103,22 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
           >
             <option value="">All categories</option>
 
-            {categories.map((item) => (
-              <option key={item.slug} value={item.slug}>
-                {item.name}
-              </option>
-            ))}
+            {categories.map((item) =>
+              item.children && item.children.length > 0 ? (
+                <optgroup key={item.slug} label={item.name}>
+                  <option value={item.slug}>All {item.name}</option>
+                  {item.children.map((sub) => (
+                    <option key={sub.slug} value={sub.slug}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : (
+                <option key={item.slug} value={item.slug}>
+                  {item.name}
+                </option>
+              ),
+            )}
           </select>
         </div>
 

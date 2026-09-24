@@ -11,11 +11,24 @@ type Variant = {
   stock: string;
 };
 
+type SubCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type Category = {
+  id: string;
+  name: string;
+  children?: SubCategory[];
+};
+
 type Product = {
   id: string;
   name: string;
   description: string;
   categoryId: string;
+  subCategoryId?: string | null;
   isActive: boolean;
   isFeatured: boolean;
   variants: {
@@ -25,11 +38,6 @@ type Product = {
     price: string;
     stock: number;
   }[];
-};
-
-type Category = {
-  id: string;
-  name: string;
 };
 
 type EditProductFormProps = {
@@ -51,8 +59,14 @@ export default function EditProductForm({
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.description);
   const [categoryId, setCategoryId] = useState(product.categoryId);
+  const [subCategoryId, setSubCategoryId] = useState(
+    product.subCategoryId ?? "",
+  );
   const [isActive, setIsActive] = useState(product.isActive);
   const [isFeatured, setIsFeatured] = useState(product.isFeatured);
+
+  const subCategories =
+    categories.find((c) => c.id === categoryId)?.children ?? [];
 
   const [variants, setVariants] = useState<Variant[]>(
     product.variants.map((variant) => ({
@@ -72,6 +86,7 @@ export default function EditProductForm({
     setName(product.name);
     setDescription(product.description);
     setCategoryId(product.categoryId);
+    setSubCategoryId(product.subCategoryId ?? "");
     setIsActive(product.isActive);
     setIsFeatured(product.isFeatured);
 
@@ -127,6 +142,7 @@ export default function EditProductForm({
           name,
           description,
           categoryId,
+          subCategoryId: subCategoryId || null,
           isActive,
           isFeatured,
           variants: variants.map((variant) => ({
@@ -198,7 +214,10 @@ export default function EditProductForm({
             <select
               id="category"
               value={categoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
+              onChange={(event) => {
+                setCategoryId(event.target.value);
+                setSubCategoryId("");
+              }}
               required
               className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
             >
@@ -209,6 +228,34 @@ export default function EditProductForm({
               ))}
             </select>
           </div>
+
+          {subCategories.length > 0 && (
+            <div>
+              <label
+                htmlFor="subCategory"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
+                Sub-category{" "}
+                <span className="text-xs font-normal text-slate-400">
+                  (optional)
+                </span>
+              </label>
+
+              <select
+                id="subCategory"
+                value={subCategoryId}
+                onChange={(event) => setSubCategoryId(event.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              >
+                <option value="">— No sub-category —</option>
+                {subCategories.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label

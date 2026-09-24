@@ -63,17 +63,34 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
     const { id } = await context.params;
 
-    const productCount = await prisma.product.count({
-      where: {
-        categoryId: id,
-      },
-    });
+    const [productCount, subProductCount, childCategoryCount] =
+      await Promise.all([
+        prisma.product.count({
+          where: { categoryId: id },
+        }),
+        prisma.product.count({
+          where: { subCategoryId: id },
+        }),
+        prisma.category.count({
+          where: { parentId: id },
+        }),
+      ]);
 
-    if (productCount > 0) {
+    if (productCount > 0 || subProductCount > 0) {
       return NextResponse.json(
         {
           message:
             "This category cannot be deleted while products are assigned to it.",
+        },
+        { status: 409 },
+      );
+    }
+
+    if (childCategoryCount > 0) {
+      return NextResponse.json(
+        {
+          message:
+            "This category has sub-categories. Please delete or move them before deleting this category.",
         },
         { status: 409 },
       );

@@ -1,91 +1,102 @@
-import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-user";
 import CategoryForm from "@/components/admin/CategoryForm";
-import DeleteCategoryButton from "@/components/admin/DeleteCategoryButton";
 import CategoryRow from "@/components/admin/CategoryRow";
 
 export default async function AdminCategoriesPage() {
-  let user;
+  await requireAdmin();
 
-  try {
-    user = await requireUser();
-  } catch {
-    redirect("/login");
-  }
-
-  if (user.role !== "ADMIN") {
-    redirect("/account");
-  }
-
-  const categories = await prisma.category.findMany({
+  // Fetch top-level categories with their children
+  const topLevel = await prisma.category.findMany({
+    where: { parentId: null },
+    orderBy: { name: "asc" },
     include: {
-      _count: {
-        select: {
-          products: true,
+      _count: { select: { products: true } },
+      children: {
+        orderBy: { name: "asc" },
+        include: {
+          _count: { select: { products: true, subProducts: true } },
         },
       },
     },
-    orderBy: {
-      name: "asc",
-    },
   });
 
+  // For the form: only top-level categories can be parents
+  const parentOptions = topLevel.map((c) => ({ id: c.id, name: c.name }));
+
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8">
-          <p className="text-sm font-medium text-blue-600">Catalog</p>
+    <div className="max-w-7xl mx-auto space-y-6">
+      <div>
+        <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+          Catalog
+        </span>
+        <h1 className="text-3xl font-bold text-slate-900 mt-1">Categories</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Manage top-level categories (Men, Women, Kids) and their sub-categories (Shirts, Sarees, etc.).
+        </p>
+      </div>
 
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">Categories</h1>
-
-          <p className="mt-2 text-slate-500">
-            Manage the categories used throughout the Velora catalog.
+      <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
+        {/* Create form */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm self-start">
+          <h2 className="text-lg font-semibold text-slate-900">Add category</h2>
+          <p className="mt-1 mb-6 text-sm text-slate-500">
+            Create a top-level or sub-category.
           </p>
-        </div>
+          <CategoryForm parentCategories={parentOptions} />
+        </section>
 
-        <div className="grid gap-8 lg:grid-cols-[380px_1fr]">
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Add category
-            </h2>
-
-            <p className="mt-1 mb-6 text-sm text-slate-500">
-              Create a category for your products.
+        {/* Category tree */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-6 py-5">
+            <h2 className="font-semibold text-slate-900">All categories</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {topLevel.length} top-level • {topLevel.reduce((s, c) => s + c.children.length, 0)} sub-categories
             </p>
+          </div>
 
-            <CategoryForm />
-          </section>
-
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-6 py-5">
-              <h2 className="font-semibold text-slate-900">
-                Existing categories
-              </h2>
+          {topLevel.length === 0 ? (
+            <div className="p-10 text-center text-sm text-slate-500">
+              No categories yet. Create your first one.
             </div>
-
-            {categories.length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500">
-                No categories have been created yet.
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-200">
-                {categories.map((category) => (
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {topLevel.map((parent) => (
+                <div key={parent.id}>
+                  {/* Parent row */}
                   <CategoryRow
-                    key={category.id}
                     category={{
-                      id: category.id,
-                      name: category.name,
-                      slug: category.slug,
-                      productCount: category._count.products,
+                      id: parent.id,
+                      name: parent.name,
+                      slug: parent.slug,
+                      productCount: parent._count.products,
+                      isParent: true,
+                      childCount: parent.children.length,
                     }}
                   />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+
+                  {/* Sub-category rows */}
+                  {parent.children.map((child) => (
+                    <CategoryRow
+                      key={child.id}
+                      category={{
+                        id: child.id,
+                        name: child.name,
+                        slug: child.slug,
+                        productCount:
+                          child._count.products + child._count.subProducts,
+                        isParent: false,
+                        childCount: 0,
+                        parentName: parent.name,
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
-    </main>
+    </div>
   );
 }

@@ -61,6 +61,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {product.category.name}
           </Link>
 
+          {product.subCategory && (
+            <>
+              <span className="mx-2">/</span>
+              <Link
+                href={`/shop?category=${product.subCategory.slug}`}
+                className="hover:text-blue-600"
+              >
+                {product.subCategory.name}
+              </Link>
+            </>
+          )}
+
           <span className="mx-2">/</span>
 
           <span className="text-slate-700">{product.name}</span>
@@ -70,9 +82,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ProductGallery productName={product.name} images={product.images} />
 
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-              {product.category.name}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+                {product.category.name}
+              </span>
+              {product.subCategory && (
+                <>
+                  <span className="text-xs text-slate-300">•</span>
+                  <span className="text-sm font-medium text-slate-500">
+                    {product.subCategory.name}
+                  </span>
+                </>
+              )}
+            </div>
 
             <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               {product.name}

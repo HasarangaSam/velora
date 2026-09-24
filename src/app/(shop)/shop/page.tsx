@@ -30,12 +30,20 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     }),
 
     prisma.category.findMany({
+      where: { parentId: null },
       orderBy: {
         name: "asc",
       },
-      select: {
-        name: true,
-        slug: true,
+      include: {
+        children: {
+          orderBy: {
+            name: "asc",
+          },
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
       },
     }),
   ]);

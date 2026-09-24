@@ -13,6 +13,12 @@ export async function getProductBySlug(slug: string) {
           slug: true,
         },
       },
+      subCategory: {
+        select: {
+          name: true,
+          slug: true,
+        },
+      },
       images: {
         orderBy: {
           sortOrder: "asc",

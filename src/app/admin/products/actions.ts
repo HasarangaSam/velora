@@ -42,6 +42,12 @@ export async function createProduct(
       };
     }
 
+    const rawSubCategoryId = formData.get("subCategoryId");
+    const subCategoryId =
+      rawSubCategoryId && String(rawSubCategoryId) !== ""
+        ? String(rawSubCategoryId)
+        : null;
+
     const productResult = productSchema.safeParse({
       name: formData.get("name"),
       description: formData.get("description"),
@@ -71,19 +77,26 @@ export async function createProduct(
     }
 
     const category = await prisma.category.findUnique({
-      where: {
-        id: productResult.data.categoryId,
-      },
-      select: {
-        id: true,
-      },
+      where: { id: productResult.data.categoryId },
+      select: { id: true },
     });
 
     if (!category) {
-      return {
-        ...initialState,
-        message: "The selected category does not exist.",
-      };
+      return { ...initialState, message: "The selected category does not exist." };
+    }
+
+    // Validate sub-category if provided
+    if (subCategoryId) {
+      const subCat = await prisma.category.findUnique({
+        where: { id: subCategoryId },
+        select: { parentId: true },
+      });
+      if (!subCat || subCat.parentId !== productResult.data.categoryId) {
+        return {
+          ...initialState,
+          message: "Selected sub-category does not belong to the chosen main category.",
+        };
+      }
     }
 
     const slug = productResult.data.name
@@ -93,26 +106,18 @@ export async function createProduct(
       .replace(/^-|-$/g, "");
 
     if (!slug) {
-      return {
-        ...initialState,
-        message: "Unable to create a valid product slug.",
-      };
+      return { ...initialState, message: "Unable to create a valid product slug." };
     }
 
     const existingSlug = await prisma.product.findUnique({
-      where: {
-        slug,
-      },
-      select: {
-        id: true,
-      },
+      where: { slug },
+      select: { id: true },
     });
 
     if (existingSlug) {
       return {
         ...initialState,
-        message:
-          "A product with a similar name already exists. Please use a different product name.",
+        message: "A product with a similar name already exists. Please use a different product name.",
       };
     }
 
@@ -122,6 +127,7 @@ export async function createProduct(
         slug,
         description: productResult.data.description,
         categoryId: productResult.data.categoryId,
+        subCategoryId: subCategoryId ?? null,
         isActive: productResult.data.isActive,
         isFeatured: productResult.data.isFeatured,
         variants: {
@@ -133,9 +139,7 @@ export async function createProduct(
           })),
         },
       },
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     return {

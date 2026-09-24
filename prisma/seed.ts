@@ -66,7 +66,7 @@ async function main() {
     });
   }
 
-  // 2. Seed Categories
+  // 2. Seed Categories & Sub-Categories
   const menCategory = await prisma.category.upsert({
     where: { slug: "men" },
     update: { name: "Men" },
@@ -85,6 +85,69 @@ async function main() {
     create: { name: "Kids", slug: "kids" },
   });
 
+  // Men Sub-Categories
+  const menTShirts = await prisma.category.upsert({
+    where: { slug: "men-t-shirts" },
+    update: { name: "T-Shirts", parentId: menCategory.id },
+    create: { name: "T-Shirts", slug: "men-t-shirts", parentId: menCategory.id },
+  });
+
+  const menShirts = await prisma.category.upsert({
+    where: { slug: "men-shirts" },
+    update: { name: "Shirts", parentId: menCategory.id },
+    create: { name: "Shirts", slug: "men-shirts", parentId: menCategory.id },
+  });
+
+  const menChinos = await prisma.category.upsert({
+    where: { slug: "men-chinos" },
+    update: { name: "Chinos & Trousers", parentId: menCategory.id },
+    create: { name: "Chinos & Trousers", slug: "men-chinos", parentId: menCategory.id },
+  });
+
+  // Women Sub-Categories
+  const womenDresses = await prisma.category.upsert({
+    where: { slug: "women-dresses" },
+    update: { name: "Dresses", parentId: womenCategory.id },
+    create: { name: "Dresses", slug: "women-dresses", parentId: womenCategory.id },
+  });
+
+  const womenTops = await prisma.category.upsert({
+    where: { slug: "women-tops" },
+    update: { name: "Tops & Tees", parentId: womenCategory.id },
+    create: { name: "Tops & Tees", slug: "women-tops", parentId: womenCategory.id },
+  });
+
+  const womenTrousers = await prisma.category.upsert({
+    where: { slug: "women-trousers" },
+    update: { name: "Trousers", parentId: womenCategory.id },
+    create: { name: "Trousers", slug: "women-trousers", parentId: womenCategory.id },
+  });
+
+  const womenSkirts = await prisma.category.upsert({
+    where: { slug: "women-skirts" },
+    update: { name: "Skirts", parentId: womenCategory.id },
+    create: { name: "Skirts", slug: "women-skirts", parentId: womenCategory.id },
+  });
+
+  const womenSarees = await prisma.category.upsert({
+    where: { slug: "women-sarees" },
+    update: { name: "Sarees", parentId: womenCategory.id },
+    create: { name: "Sarees", slug: "women-sarees", parentId: womenCategory.id },
+  });
+
+  // Kids Sub-Categories
+  const kidsTShirts = await prisma.category.upsert({
+    where: { slug: "kids-t-shirts" },
+    update: { name: "T-Shirts", parentId: kidsCategory.id },
+    create: { name: "T-Shirts", slug: "kids-t-shirts", parentId: kidsCategory.id },
+  });
+
+  const kidsShorts = await prisma.category.upsert({
+    where: { slug: "kids-shorts" },
+    update: { name: "Shorts", parentId: kidsCategory.id },
+    create: { name: "Shorts", slug: "kids-shorts", parentId: kidsCategory.id },
+  });
+
   // 3. Seed Products
   const productsData = [
     // Men's Products
@@ -93,6 +156,7 @@ async function main() {
       slug: "classic-oversized-cotton-t-shirt",
       description: "Crafted from 100% heavyweight 240GSM combed cotton, this oversized tee delivers superior comfort and an effortless modern drape for daily tropical wear.",
       categoryId: menCategory.id,
+      subCategoryId: menTShirts.id,
       isFeatured: true,
       images: [
         {
@@ -115,6 +179,7 @@ async function main() {
       slug: "relaxed-fit-linen-short-sleeve-shirt",
       description: "Breathable pure linen Cuban collar shirt designed to stay crisp and airy during hot sunny afternoons in Sri Lanka.",
       categoryId: menCategory.id,
+      subCategoryId: menShirts.id,
       isFeatured: true,
       images: [
         {
@@ -135,6 +200,7 @@ async function main() {
       slug: "everyday-stretch-chino-pants",
       description: "Smart casual tailored chinos with 2% elastane for flexible movement whether you're at the office or weekend dinner.",
       categoryId: menCategory.id,
+      subCategoryId: menChinos.id,
       isFeatured: false,
       images: [
         {
@@ -157,6 +223,7 @@ async function main() {
       slug: "breezy-tiered-linen-midi-dress",
       description: "A breezy, feminine tiered silhouette cut from premium lightweight linen with delicate puff sleeves and functional side pockets.",
       categoryId: womenCategory.id,
+      subCategoryId: womenDresses.id,
       isFeatured: true,
       images: [
         {
@@ -178,6 +245,7 @@ async function main() {
       slug: "minimalist-ribbed-knit-crop-top",
       description: "Soft viscose blend cropped tee with a flattering scoop neckline, designed for versatile layering and weekend pairing.",
       categoryId: womenCategory.id,
+      subCategoryId: womenTops.id,
       isFeatured: true,
       images: [
         {
@@ -198,6 +266,7 @@ async function main() {
       slug: "high-waist-wide-leg-trousers",
       description: "Elegant pleated high-waisted trousers with tailored front crease and relaxed wide drape.",
       categoryId: womenCategory.id,
+      subCategoryId: womenTrousers.id,
       isFeatured: false,
       images: [
         {
@@ -212,6 +281,46 @@ async function main() {
         { size: "L", colour: "Beige", price: 4790, stock: 8 },
       ],
     },
+    {
+      name: "Traditional Handwoven Pure Silk Saree",
+      slug: "traditional-handwoven-pure-silk-saree",
+      description: "Exquisite handwoven pure silk saree adorned with rich golden zari border and pallu, perfect for weddings and special occasions in Sri Lanka.",
+      categoryId: womenCategory.id,
+      subCategoryId: womenSarees.id,
+      isFeatured: true,
+      images: [
+        {
+          url: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80",
+          publicId: "seed-silk-saree-1",
+          isPrimary: true,
+        },
+      ],
+      variants: [
+        { size: "Free Size", colour: "Red", price: 14990, stock: 6 },
+        { size: "Free Size", colour: "Green", price: 14990, stock: 5 },
+        { size: "Free Size", colour: "Gold", price: 15990, stock: 4 },
+      ],
+    },
+    {
+      name: "Floral Tiered Bohemian Maxi Skirt",
+      slug: "floral-tiered-bohemian-maxi-skirt",
+      description: "Flowy rayon maxi skirt with an elastic smocked waistband and vibrant tropical floral motifs.",
+      categoryId: womenCategory.id,
+      subCategoryId: womenSkirts.id,
+      isFeatured: false,
+      images: [
+        {
+          url: "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&w=800&q=80",
+          publicId: "seed-maxi-skirt-1",
+          isPrimary: true,
+        },
+      ],
+      variants: [
+        { size: "S", colour: "Floral Blue", price: 3890, stock: 12 },
+        { size: "M", colour: "Floral Blue", price: 3890, stock: 15 },
+        { size: "L", colour: "Floral Blue", price: 3890, stock: 8 },
+      ],
+    },
 
     // Kids' Products
     {
@@ -219,6 +328,7 @@ async function main() {
       slug: "kids-organic-cotton-graphic-tee",
       description: "Super-soft combed cotton jersey tee gentle on sensitive skin with vibrant water-based playful print.",
       categoryId: kidsCategory.id,
+      subCategoryId: kidsTShirts.id,
       isFeatured: true,
       images: [
         {
@@ -239,6 +349,7 @@ async function main() {
       slug: "kids-everyday-play-chino-shorts",
       description: "Durable cotton twill shorts with an elastic drawstring waistband designed for all-day running and playing.",
       categoryId: kidsCategory.id,
+      subCategoryId: kidsShorts.id,
       isFeatured: false,
       images: [
         {
@@ -267,6 +378,7 @@ async function main() {
           slug: p.slug,
           description: p.description,
           categoryId: p.categoryId,
+          subCategoryId: p.subCategoryId,
           isFeatured: p.isFeatured,
           isActive: true,
           images: {
@@ -288,6 +400,15 @@ async function main() {
         },
       });
       console.log(`Created product: ${p.name}`);
+    } else {
+      await prisma.product.update({
+        where: { id: existing.id },
+        data: {
+          categoryId: p.categoryId,
+          subCategoryId: p.subCategoryId,
+        },
+      });
+      console.log(`Updated product category & subCategory: ${p.name}`);
     }
   }
 

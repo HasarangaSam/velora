@@ -53,12 +53,19 @@ export default async function ProductEditPage({
     }),
 
     prisma.category.findMany({
+      where: { parentId: null },
       orderBy: {
         name: "asc",
       },
-      select: {
-        id: true,
-        name: true,
+      include: {
+        children: {
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
       },
     }),
   ]);
@@ -72,6 +79,7 @@ export default async function ProductEditPage({
     name: product.name,
     description: product.description,
     categoryId: product.categoryId,
+    subCategoryId: product.subCategoryId,
     isActive: product.isActive,
     isFeatured: product.isFeatured,
     variants: product.variants.map((variant) => ({
