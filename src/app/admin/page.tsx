@@ -1,7 +1,18 @@
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/require-user";
 
 export default async function AdminPage() {
-  const user = await requireAdmin();
+  let user;
+
+  try {
+    user = await requireUser();
+  } catch {
+    redirect("/login");
+  }
+
+  if (user.role !== "ADMIN") {
+    redirect("/account");
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-12">
