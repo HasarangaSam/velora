@@ -1,92 +1,61 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { productSchema, productVariantSchema } from "@/lib/validation/product";
 
-const createProductSchema = productSchema.extend({
-  slug: productSchema.shape.name
-    .transform((name) =>
-      name
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, ""),
+const updateProductSchema = productSchema.extend({
+  variants: z
+    .array(
+      productVariantSchema.extend({
+        id: z.string().optional(),
+      }),
     )
-    .optional(),
-  variants: productVariantSchema.array().min(1),
+    .min(1),
 });
 
-export async function GET() {
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+export async function PATCH(request: Request, context: RouteContext) {
   try {
     await requireAdmin();
 
-    const products = await prisma.product.findMany({
-      include: {
-        category: true,
-        images: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
-        variants: {
-          orderBy: {
-            size: "asc",
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json(products);
-  } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHORIZED") {
-      return NextResponse.json(
-        { message: "Authentication required." },
-        { status: 401 },
-      );
-    }
-
-    if (error instanceof Error && error.message === "FORBIDDEN") {
-      return NextResponse.json(
-        { message: "Admin access required." },
-        { status: 403 },
-      );
-    }
-
-    console.error("Get products error:", error);
-
-    return NextResponse.json(
-      { message: "Unable to load products." },
-      { status: 500 },
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    await requireAdmin();
-
+    const { id } = await context.params;
     const body = await request.json();
 
-    const result = createProductSchema.safeParse(body);
+    const result = updateProductSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
         {
           message: "Please provide valid product details.",
+          errors: result.error.flatten().fieldErrors,
         },
         { status: 400 },
       );
     }
 
-    const { name, description, categoryId, isActive, isFeatured, variants } =
-      result.data;
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        variants: true,
+      },
+    });
+
+    if (!product) {
+      return NextResponse.json(
+        { message: "Product not found." },
+        { status: 404 },
+      );
+    }
 
     const category = await prisma.category.findUnique({
       where: {
-        id: categoryId,
+        id: result.data.categoryId,
       },
       select: {
         id: true,
@@ -95,43 +64,113 @@ export async function POST(request: Request) {
 
     if (!category) {
       return NextResponse.json(
-        { message: "Selected category does not exist." },
+        { message: "The selected category does not exist." },
         { status: 400 },
       );
     }
 
-    const slug =
-      result.data.slug ??
-      name
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
+    const existingVariantIds = new Set(
+      product.variants.map((variant) => variant.id),
+    );
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        slug,
-        description,
-        categoryId,
-        isActive,
-        isFeatured,
-        variants: {
-          create: variants.map((variant) => ({
-            size: variant.size,
-            colour: variant.colour,
-            price: variant.price,
-            stock: variant.stock,
-          })),
+    const submittedVariantIds = new Set<string>();
+
+    for (const variant of result.data.variants) {
+      if (variant.id) {
+        if (!existingVariantIds.has(variant.id)) {
+          return NextResponse.json(
+            { message: "Invalid product variant." },
+            { status: 400 },
+          );
+        }
+
+        if (submittedVariantIds.has(variant.id)) {
+          return NextResponse.json(
+            { message: "Duplicate product variant." },
+            { status: 400 },
+          );
+        }
+
+        submittedVariantIds.add(variant.id);
+      }
+    }
+
+    const duplicateVariants = new Set<string>();
+
+    for (const variant of result.data.variants) {
+      const key = `${variant.size.toLowerCase()}::${variant.colour.toLowerCase()}`;
+
+      if (duplicateVariants.has(key)) {
+        return NextResponse.json(
+          {
+            message: "Each size and colour combination can only be added once.",
+          },
+          { status: 400 },
+        );
+      }
+
+      duplicateVariants.add(key);
+    }
+
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      const updated = await tx.product.update({
+        where: { id },
+        data: {
+          name: result.data.name,
+          description: result.data.description,
+          categoryId: result.data.categoryId,
+          isActive: result.data.isActive,
+          isFeatured: result.data.isFeatured,
         },
-      },
-      include: {
-        variants: true,
-        category: true,
-      },
+      });
+
+      for (const variant of result.data.variants) {
+        if (variant.id) {
+          await tx.productVariant.update({
+            where: {
+              id: variant.id,
+            },
+            data: {
+              size: variant.size,
+              colour: variant.colour,
+              price: variant.price,
+              stock: variant.stock,
+            },
+          });
+        } else {
+          await tx.productVariant.create({
+            data: {
+              productId: id,
+              size: variant.size,
+              colour: variant.colour,
+              price: variant.price,
+              stock: variant.stock,
+            },
+          });
+        }
+      }
+
+      // Keep old variants for existing orders and carts instead of deleting their records.
+      for (const variant of product.variants) {
+        if (!submittedVariantIds.has(variant.id)) {
+          await tx.productVariant.update({
+            where: {
+              id: variant.id,
+            },
+            data: {
+              stock: 0,
+            },
+          });
+        }
+      }
+
+      return updated;
     });
 
-    return NextResponse.json(product, { status: 201 });
+    return NextResponse.json({
+      message: "Product updated successfully.",
+      product: updatedProduct,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json(
@@ -147,10 +186,62 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error("Create product error:", error);
+    console.error("Update product error:", error);
 
     return NextResponse.json(
-      { message: "Unable to create product." },
+      { message: "Unable to update the product." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  try {
+    await requireAdmin();
+
+    const { id } = await context.params;
+
+    const product = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!product) {
+      return NextResponse.json(
+        { message: "Product not found." },
+        { status: 404 },
+      );
+    }
+
+    await prisma.product.update({
+      where: { id },
+      data: {
+        isActive: false,
+      },
+    });
+
+    return NextResponse.json({
+      message: "Product deactivated successfully.",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json(
+        { message: "Authentication required." },
+        { status: 401 },
+      );
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return NextResponse.json(
+        { message: "Admin access required." },
+        { status: 403 },
+      );
+    }
+
+    console.error("Delete product error:", error);
+
+    return NextResponse.json(
+      { message: "Unable to deactivate the product." },
       { status: 500 },
     );
   }
