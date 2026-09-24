@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   MessageSquareText,
 } from "lucide-react";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 export default async function AdminLayout({
   children,
@@ -122,8 +123,9 @@ export default async function AdminLayout({
 
       {/* Main Admin Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between md:hidden">
+        <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between">
           <span className="font-bold text-lg text-blue-600">Velora Admin</span>
+          <NotificationBell />
           <Link
             href="/"
             className="text-xs font-semibold text-slate-600 hover:text-blue-600"

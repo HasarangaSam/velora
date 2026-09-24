@@ -17,6 +17,7 @@ import {
   Heart,
 } from "lucide-react";
 import ProductSearchInput from "@/components/shop/ProductSearchInput";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 export default function Navbar() {
   const router = useRouter();
@@ -110,6 +111,7 @@ export default function Navbar() {
 
           {/* Actions: Account, Wishlist & Cart */}
           <div className="flex items-center gap-4">
+            {session?.user && <NotificationBell />}
             {/* User Account / Dropdown */}
             {session?.user ? (
               <div className="relative">

@@ -180,3 +180,73 @@ export async function sendPasswordResetEmail({
     return { success: true, fallbackUrl: resetUrl, fallbackOtp: otp };
   }
 }
+
+export async function sendOrderStatusEmail({
+  to,
+  name,
+  orderNumber,
+  status,
+}: {
+  to: string;
+  name?: string | null;
+  orderNumber: string;
+  status: string;
+}) {
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character] ?? character);
+  const greeting = name ? `Hi ${escapeHtml(name)},` : "Hello,";
+  const safeStatus = escapeHtml(status.toLowerCase().replaceAll("_", " "));
+  const safeOrderNumber = escapeHtml(orderNumber);
+  const subject = `Order ${safeOrderNumber} is ${status.toLowerCase().replaceAll("_", " ")}`;
+  const text = `${greeting}\n\nYour Velora order ${orderNumber} is now ${status.toLowerCase().replaceAll("_", " ")}. You can view the latest details in My Orders.`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;padding:32px 16px"><div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:30px"><p style="font-size:12px;letter-spacing:3px;font-weight:bold;color:#2563eb">VELORA</p><h1 style="font-size:22px">An update on your order</h1><p style="font-size:15px;line-height:1.7;color:#475569">${greeting}<br/>Your order <strong>${safeOrderNumber}</strong> is now <strong>${safeStatus}</strong>.</p><p style="font-size:13px;line-height:1.6;color:#64748b">You can sign in to your Velora account to view the latest order details.</p></div></body></html>`;
+
+  try {
+    await getTransporter().sendMail({ from: FROM_EMAIL, to, subject, text, html });
+    console.log(`[EMAIL] Order status email sent to ${to} (${orderNumber}: ${status})`);
+    return { success: true };
+  } catch (error) {
+    console.warn(`[EMAIL WARNING] Failed to send order status email to ${to}:`, error);
+    return { success: false };
+  }
+}
+
+export type OrderConfirmationDetails = {
+  to: string;
+  customerName: string;
+  orderNumber: string;
+  items: Array<{ name: string; size: string; colour: string; price: number; quantity: number }>;
+  subtotal: number;
+  discount: number;
+  shippingCost: number;
+  total: number;
+  shippingAddress: string[];
+};
+
+export async function sendOrderConfirmationEmail(order: OrderConfirmationDetails) {
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character] ?? character);
+  const money = (amount: number) => `LKR ${amount.toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const safeOrderNumber = escapeHtml(order.orderNumber);
+  const rowsHtml = order.items.map((item) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0"><strong>${escapeHtml(item.name)}</strong><br/><span style="color:#64748b;font-size:12px">${escapeHtml(item.size)} · ${escapeHtml(item.colour)} · Qty ${item.quantity}</span></td><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${money(item.price * item.quantity)}</td></tr>`).join("");
+  const summaryHtml = [
+    ["Subtotal", order.subtotal],
+    ["Discount", -order.discount],
+    ["Shipping", order.shippingCost],
+  ].map(([label, amount]) => `<tr><td style="padding:5px 0;color:#64748b">${label}</td><td style="padding:5px 0;text-align:right">${money(Number(amount))}</td></tr>`).join("");
+  const addressHtml = order.shippingAddress.filter(Boolean).map(escapeHtml).join("<br/>");
+  const html = `<!doctype html><html><body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;padding:32px 16px"><div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:30px"><p style="font-size:12px;letter-spacing:3px;font-weight:bold;color:#2563eb">VELORA</p><h1 style="font-size:24px;margin-bottom:8px">Your order is confirmed</h1><p style="font-size:14px;line-height:1.7;color:#475569">Hi ${escapeHtml(order.customerName)},<br/>We’ve received your payment for order <strong>${safeOrderNumber}</strong>. Here’s your receipt and order summary.</p><h2 style="font-size:15px;margin-top:28px">Items</h2><table style="width:100%;border-collapse:collapse;font-size:13px">${rowsHtml}</table><table style="width:100%;margin-top:14px;border-collapse:collapse;font-size:13px">${summaryHtml}<tr><td style="padding-top:12px;border-top:1px solid #cbd5e1;font-weight:bold">Paid total</td><td style="padding-top:12px;border-top:1px solid #cbd5e1;text-align:right;font-weight:bold">${money(order.total)}</td></tr></table><h2 style="font-size:15px;margin:28px 0 8px">Delivering to</h2><p style="font-size:13px;line-height:1.7;color:#475569;margin:0">${addressHtml}</p><p style="font-size:12px;line-height:1.6;color:#94a3b8;margin-top:28px">Thank you for shopping with Velora.</p></div></body></html>`;
+  const textItems = order.items.map((item) => `${item.name} (${item.size}, ${item.colour}) × ${item.quantity} — ${money(item.price * item.quantity)}`).join("\n");
+  const text = `Hi ${order.customerName},\n\nYour payment for order ${order.orderNumber} was successful.\n\n${textItems}\n\nSubtotal: ${money(order.subtotal)}\nDiscount: -${money(order.discount)}\nShipping: ${money(order.shippingCost)}\nPaid total: ${money(order.total)}\n\nDelivering to:\n${order.shippingAddress.filter(Boolean).join("\n")}\n\nThank you for shopping with Velora.`;
+
+  try {
+    await getTransporter().sendMail({ from: FROM_EMAIL, to: order.to, subject: `Payment received — order ${safeOrderNumber}`, text, html });
+    console.log(`[EMAIL] Order confirmation sent to ${order.to} (${order.orderNumber})`);
+    return { success: true };
+  } catch (error) {
+    console.warn(`[EMAIL WARNING] Failed to send order confirmation to ${order.to}:`, error);
+    return { success: false };
+  }
+}

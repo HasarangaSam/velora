@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { OrderStatus } from "@/generated/prisma/enums";
+import { notifyUser } from "@/lib/notifications";
+import { sendOrderStatusEmail } from "@/lib/email";
 
 export async function updateOrderStatus(orderId: string, newStatus: string) {
   try {
@@ -15,11 +17,20 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        orderNumber: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
     });
 
     if (!order) {
       return { success: false, message: "Order not found." };
+    }
+
+    if (order.status === newStatus) {
+      return { success: true, message: `Order is already ${newStatus.toLowerCase()}.` };
     }
 
     await prisma.order.update({
@@ -27,6 +38,23 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
       data: {
         status: newStatus as OrderStatus,
       },
+    });
+
+    const statusLabel = newStatus.toLowerCase().replaceAll("_", " ");
+    try {
+      await notifyUser(order.user.id, {
+        title: "Order status updated",
+        message: `Order #${order.orderNumber} is now ${statusLabel}.`,
+        href: `/account/orders/${order.id}`,
+      });
+    } catch (error) {
+      console.error("Could not save order status notification:", error);
+    }
+    await sendOrderStatusEmail({
+      to: order.user.email,
+      name: order.user.name,
+      orderNumber: order.orderNumber,
+      status: newStatus,
     });
 
     revalidatePath("/admin/orders");

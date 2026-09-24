@@ -5,6 +5,7 @@ import {
   verifyPayHereSignature,
   PAYHERE_CURRENCY,
 } from "@/lib/payhere";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
 
   if (statusCode === "2") {
     try {
-      await prisma.$transaction(
+      const newlyPaid = await prisma.$transaction(
         async (tx) => {
           const currentPayment = await tx.payment.findUnique({
             where: {
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
           }
 
           if (currentPayment.status === "PAID") {
-            return;
+            return false;
           }
 
           const currentOrder = await tx.order.findUnique({
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
           }
 
           if (currentOrder.paymentStatus === "PAID") {
-            return;
+            return false;
           }
 
           for (const item of currentOrder.items) {
@@ -220,11 +221,48 @@ export async function POST(request: Request) {
               status: "CONFIRMED",
             },
           });
+          return true;
         },
         {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         },
       );
+
+      if (newlyPaid) {
+        const confirmedOrder = await prisma.order.findUnique({
+          where: { id: order.id },
+          include: {
+            user: { select: { name: true, email: true } },
+            items: { select: { name: true, size: true, colour: true, price: true, quantity: true } },
+          },
+        });
+
+        if (confirmedOrder) {
+          await sendOrderConfirmationEmail({
+            to: confirmedOrder.user.email,
+            customerName: confirmedOrder.user.name ?? "customer",
+            orderNumber: confirmedOrder.orderNumber,
+            items: confirmedOrder.items.map((item) => ({
+              name: item.name,
+              size: item.size,
+              colour: item.colour,
+              price: Number(item.price),
+              quantity: item.quantity,
+            })),
+            subtotal: Number(confirmedOrder.subtotal),
+            discount: Number(confirmedOrder.discount),
+            shippingCost: Number(confirmedOrder.shippingCost),
+            total: Number(confirmedOrder.total),
+            shippingAddress: [
+              confirmedOrder.shippingFullName,
+              confirmedOrder.shippingAddressLine1,
+              confirmedOrder.shippingAddressLine2 ?? "",
+              `${confirmedOrder.shippingCity}, ${confirmedOrder.shippingDistrict} ${confirmedOrder.shippingPostalCode}`,
+              confirmedOrder.shippingPhone,
+            ],
+          });
+        }
+      }
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === "INSUFFICIENT_STOCK") {

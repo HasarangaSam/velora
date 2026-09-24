@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
 import { calculateOrderTotals } from "@/lib/order";
 import { createOrderSchema } from "@/lib/validation/order";
+import { notifyAdmins } from "@/lib/notifications";
 import { checkRateLimit } from "@/lib/redis";
 
 function generateOrderNumber() {
@@ -340,6 +341,16 @@ export async function POST(request: Request) {
 
       return createdOrder;
     });
+
+    try {
+      await notifyAdmins({
+        title: "New order received",
+        message: `Order #${order.orderNumber} has been placed.`,
+        href: `/admin/orders/${order.id}`,
+      });
+    } catch (notificationError) {
+      console.error("Could not create new-order admin notification:", notificationError);
+    }
 
     return NextResponse.json(
       {

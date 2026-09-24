@@ -10,7 +10,8 @@ Velora is a full-stack fashion storefront for browsing clothing, choosing produc
 - Open product pages with product images, size and colour variants, price, and stock information.
 - Add variants to a persistent cart. Signed-in customers can sync cart contents across sessions.
 - Save delivery addresses, apply eligible coupon codes, and complete checkout through PayHere.
-- View order history, order details, and payment/order status in the customer account.
+- View order history, order details, and payment/order status in the customer account. After payment is confirmed, the customer receives an emailed order receipt with item variants, quantities, totals, discounts, shipping, and delivery address.
+- Receive in-app order status notifications from the notification bell in the store navigation.
 - Browse a responsive home page with collection entry points, selected products, and Unsplash photography.
 
 ### Accounts
@@ -25,7 +26,8 @@ Velora is a full-stack fashion storefront for browsing clothing, choosing produc
 - Create and update products, prices, inventory, and size/colour variants.
 - Select several product images during product creation. After the product is saved, the images upload to Cloudinary; the product editor can later set the primary image, reorder, add, or remove images.
 - Organize products with a top-level category and an optional subcategory.
-- Update order status, manage users and roles, and create or manage coupon codes.
+- Update order status (which emails and notifies the customer), manage users and roles, and create or manage coupon codes.
+- See individual in-app alerts for new orders and newly submitted product reviews in the admin header.
 
 ## Main technologies
 
@@ -50,7 +52,7 @@ src/
 ├── app/
 │   ├── (auth)/                 # Registration, verification, sign-in, password reset
 │   ├── (shop)/                 # Shop, products, cart, checkout, payment results
-│   ├── account/                # Customer profile, addresses, orders
+│   ├── account/                # Customer profile, addresses, orders, reviews
 │   ├── admin/                  # Catalog, categories, orders, users, coupons
 │   └── api/                    # Auth, cart/order endpoints, image upload, payment webhook
 ├── components/
@@ -58,7 +60,7 @@ src/
 │   ├── admin/                  # Admin forms, image manager, and table actions
 │   ├── auth/                   # Registration and account access forms
 │   ├── checkout/               # Address selection and checkout UI
-│   ├── layout/                 # Store navigation and footer
+│   ├── layout/                 # Store navigation, footer, and notification bell
 │   └── shop/                   # Catalog, product, and cart UI
 ├── lib/                        # Prisma, Redis, email, payment, cart, and validation helpers
 ├── store/                      # Client-side Zustand stores
@@ -66,11 +68,11 @@ src/
 
 prisma/
 ├── schema.prisma               # PostgreSQL data model
-├── migrations/                 # Database migration history
+├── migrations/                 # Database migration history, including persistent notifications
 └── seed.ts                     # Local demo users, categories, products, and coupons
 ```
 
-The App Router pages render the main customer and admin experiences. Mutations use Server Actions where form state and revalidation are useful, and Route Handlers for operations such as cart/order APIs, image uploads, and PayHere notifications. Shared Zod schemas validate product, category, and checkout data. Prisma models users, accounts, addresses, products, variants, images, carts, orders, payments, and coupons.
+The App Router pages render the main customer and admin experiences. Mutations use Server Actions where form state and revalidation are useful, and Route Handlers for operations such as cart/order APIs, image uploads, and PayHere notifications. Shared Zod schemas validate product, category, and checkout data. Prisma models users, accounts, addresses, products, variants, images, carts, orders, payments, coupons, reviews, and user notifications.
 
 Product categories are hierarchical: a category may have child categories, while a product stores its main category and an optional subcategory. Inventory and price belong to individual product variants. Product image URLs and Cloudinary public IDs are stored separately from product records, allowing the admin image manager to change gallery order and primary-image selection.
 
@@ -128,7 +130,7 @@ Product categories are hierarchical: a category may have child categories, while
 
    ```bash
    npx prisma generate
-   npx prisma db push
+   npx prisma migrate deploy
    ```
 
 4. Optionally populate a local database with demo data:
@@ -149,10 +151,16 @@ Open [http://localhost:3000](http://localhost:3000).
 
 If SMTP is not configured or email delivery fails, verification codes and password reset links are logged by the server for local development. Treat those logs as sensitive and configure real SMTP delivery outside local development.
 
+Order confirmation and order status emails use the same SMTP settings. A confirmation email is sent from the verified PayHere server notification after payment changes to `PAID`; returning to the browser success page alone does not confirm payment or trigger an email. PayHere must be able to reach the configured notification URL. The email contains the order number, purchased items and variants, quantities, subtotal, discount, shipping fee, paid total, and shipping address. Failed SMTP delivery is written to the server log.
+
+The notification bell reads the signed-in user’s notifications from the database and checks for updates on page focus and every 45 seconds while the page is visible. No socket server or separate notification service is required. New orders and new reviews notify each admin account; admin order status changes notify the affected customer.
+
 ## Configuration notes
 
 - `PAYHERE_SANDBOX=true` sends checkout to PayHere’s sandbox. Set it to `false` only when using live merchant credentials and a publicly reachable notification URL.
 - The PayHere notification endpoint is `/api/payments/payhere/notify`. Configure the matching public URL in the PayHere merchant settings.
+- Apply schema changes with `npx prisma migrate deploy` before starting the app. The notification bell requires the `Notification` table from the `20260924130000_add_notifications` migration.
+- Customer order emails are sent only after PayHere’s signed payment callback confirms success. Keep SMTP credentials valid and set `SMTP_FROM` to an address permitted by the configured SMTP provider.
 - Product image uploads require valid Cloudinary credentials. Uploads are limited to 5 MB per image by the admin image endpoint.
 - `.env*`, generated Prisma output, build output, and dependencies are excluded from Git.
 
@@ -173,3 +181,6 @@ If SMTP is not configured or email delivery fails, verification codes and passwo
 - Men, Women, and Kids navigation reflects the selected collection. The shop category filter narrows its options to the active collection and its subcategories.
 - Product cards and the shared footer use a calmer, more consistent visual system. The home page no longer advertises the coupon offer, and the footer no longer displays a PayHere sandbox verification badge.
 - Product creation accepts image selections in the initial form and uploads them after saving, instead of forcing admins to leave the creation flow to add the first images.
+- Shop price sorting orders products globally by their lowest in-stock variant price before paging. Search fields provide product suggestions while typing and can be cleared directly.
+- Customer and admin notification bells show unread counts, recent activity, and read controls. Admin alerts cover new orders and product reviews; customers are alerted when admins update order status.
+- Successful PayHere payments trigger a customer confirmation email containing the complete order and delivery summary. Admin order status changes also send customer email updates.

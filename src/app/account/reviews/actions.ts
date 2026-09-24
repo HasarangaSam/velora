@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth/require-user";
 import { prisma } from "@/lib/db/prisma";
+import { notifyAdmins } from "@/lib/notifications";
 
 export type ProductReviewActionState = {
   success: boolean;
@@ -35,7 +36,7 @@ export async function saveProductReview(
     }
 
     const [product, purchase] = await Promise.all([
-      prisma.product.findFirst({ where: { id: productId, isActive: true }, select: { id: true, slug: true } }),
+      prisma.product.findFirst({ where: { id: productId, isActive: true }, select: { id: true, slug: true, name: true } }),
       prisma.orderItem.findFirst({
         where: {
           productId,
@@ -72,6 +73,18 @@ export async function saveProductReview(
         verifiedPurchase: true,
       },
     });
+
+    if (!existing) {
+      try {
+        await notifyAdmins({
+          title: "New product review",
+          message: `A customer reviewed ${product.name}.`,
+          href: "/admin/reviews",
+        });
+      } catch (notificationError) {
+        console.error("Could not create new-review admin notification:", notificationError);
+      }
+    }
 
     revalidatePath(`/products/${product.slug}`);
     revalidatePath("/account/reviews");
