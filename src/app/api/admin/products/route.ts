@@ -1,65 +1,79 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { productSchema, productVariantSchema } from "@/lib/validation/product";
+import { redis } from "@/lib/redis";
 
-const updateProductSchema = productSchema.extend({
-  variants: z
-    .array(
-      productVariantSchema.extend({
-        id: z.string().optional(),
-      }),
-    )
-    .min(1),
-});
-
-type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
-export async function PATCH(request: Request, context: RouteContext) {
+export async function GET() {
   try {
     await requireAdmin();
 
-    const { id } = await context.params;
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        variants: true,
+        images: {
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({ products });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return NextResponse.json({ message: "Admin access required." }, { status: 403 });
+    }
+    console.error("List products error:", error);
+    return NextResponse.json({ message: "Unable to load products." }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    await requireAdmin();
+
     const body = await request.json();
 
-    const result = updateProductSchema.safeParse(body);
+    const productResult = productSchema.safeParse({
+      name: body.name,
+      description: body.description,
+      categoryId: body.categoryId,
+      isActive: body.isActive ?? true,
+      isFeatured: body.isFeatured ?? false,
+    });
 
-    if (!result.success) {
+    if (!productResult.success) {
       return NextResponse.json(
         {
-          message: "Please provide valid product details.",
-          errors: result.error.flatten().fieldErrors,
+          message: "Please correct the product details.",
+          errors: productResult.error.flatten().fieldErrors,
         },
         { status: 400 },
       );
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        variants: true,
-      },
-    });
+    const variantsResult = productVariantSchema
+      .array()
+      .min(1, "At least one variant is required.")
+      .safeParse(body.variants);
 
-    if (!product) {
+    if (!variantsResult.success) {
       return NextResponse.json(
-        { message: "Product not found." },
-        { status: 404 },
+        {
+          message: "Please correct the variant details.",
+          errors: variantsResult.error.flatten().fieldErrors,
+        },
+        { status: 400 },
       );
     }
 
     const category = await prisma.category.findUnique({
-      where: {
-        id: result.data.categoryId,
-      },
-      select: {
-        id: true,
-      },
+      where: { id: productResult.data.categoryId },
+      select: { id: true },
     });
 
     if (!category) {
@@ -69,180 +83,69 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    const existingVariantIds = new Set(
-      product.variants.map((variant) => variant.id),
-    );
+    const slug = productResult.data.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
 
-    const submittedVariantIds = new Set<string>();
-
-    for (const variant of result.data.variants) {
-      if (variant.id) {
-        if (!existingVariantIds.has(variant.id)) {
-          return NextResponse.json(
-            { message: "Invalid product variant." },
-            { status: 400 },
-          );
-        }
-
-        if (submittedVariantIds.has(variant.id)) {
-          return NextResponse.json(
-            { message: "Duplicate product variant." },
-            { status: 400 },
-          );
-        }
-
-        submittedVariantIds.add(variant.id);
-      }
-    }
-
-    const duplicateVariants = new Set<string>();
-
-    for (const variant of result.data.variants) {
-      const key = `${variant.size.toLowerCase()}::${variant.colour.toLowerCase()}`;
-
-      if (duplicateVariants.has(key)) {
-        return NextResponse.json(
-          {
-            message: "Each size and colour combination can only be added once.",
-          },
-          { status: 400 },
-        );
-      }
-
-      duplicateVariants.add(key);
-    }
-
-    const updatedProduct = await prisma.$transaction(async (tx) => {
-      const updated = await tx.product.update({
-        where: { id },
-        data: {
-          name: result.data.name,
-          description: result.data.description,
-          categoryId: result.data.categoryId,
-          isActive: result.data.isActive,
-          isFeatured: result.data.isFeatured,
-        },
-      });
-
-      for (const variant of result.data.variants) {
-        if (variant.id) {
-          await tx.productVariant.update({
-            where: {
-              id: variant.id,
-            },
-            data: {
-              size: variant.size,
-              colour: variant.colour,
-              price: variant.price,
-              stock: variant.stock,
-            },
-          });
-        } else {
-          await tx.productVariant.create({
-            data: {
-              productId: id,
-              size: variant.size,
-              colour: variant.colour,
-              price: variant.price,
-              stock: variant.stock,
-            },
-          });
-        }
-      }
-
-      // Keep old variants for existing orders and carts instead of deleting their records.
-      for (const variant of product.variants) {
-        if (!submittedVariantIds.has(variant.id)) {
-          await tx.productVariant.update({
-            where: {
-              id: variant.id,
-            },
-            data: {
-              stock: 0,
-            },
-          });
-        }
-      }
-
-      return updated;
-    });
-
-    return NextResponse.json({
-      message: "Product updated successfully.",
-      product: updatedProduct,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHORIZED") {
-      return NextResponse.json(
-        { message: "Authentication required." },
-        { status: 401 },
-      );
-    }
-
-    if (error instanceof Error && error.message === "FORBIDDEN") {
-      return NextResponse.json(
-        { message: "Admin access required." },
-        { status: 403 },
-      );
-    }
-
-    console.error("Update product error:", error);
-
-    return NextResponse.json(
-      { message: "Unable to update the product." },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(_request: Request, context: RouteContext) {
-  try {
-    await requireAdmin();
-
-    const { id } = await context.params;
-
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const existingSlug = await prisma.product.findUnique({
+      where: { slug },
       select: { id: true },
     });
 
-    if (!product) {
+    if (existingSlug) {
       return NextResponse.json(
-        { message: "Product not found." },
-        { status: 404 },
+        { message: "A product with a similar name already exists." },
+        { status: 400 },
       );
     }
 
-    await prisma.product.update({
-      where: { id },
+    const product = await prisma.product.create({
       data: {
-        isActive: false,
+        name: productResult.data.name,
+        slug,
+        description: productResult.data.description,
+        categoryId: productResult.data.categoryId,
+        isActive: productResult.data.isActive,
+        isFeatured: productResult.data.isFeatured,
+        variants: {
+          create: variantsResult.data.map((variant) => ({
+            size: variant.size,
+            colour: variant.colour,
+            price: variant.price,
+            stock: variant.stock,
+          })),
+        },
+      },
+      include: {
+        category: true,
+        variants: true,
       },
     });
 
-    return NextResponse.json({
-      message: "Product deactivated successfully.",
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHORIZED") {
-      return NextResponse.json(
-        { message: "Authentication required." },
-        { status: 401 },
-      );
+    // Invalidate Redis catalog cache
+    try {
+      const keys = await redis.keys("velora:products*");
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } catch (redisError) {
+      console.error("Redis cache invalidation error:", redisError);
     }
-
-    if (error instanceof Error && error.message === "FORBIDDEN") {
-      return NextResponse.json(
-        { message: "Admin access required." },
-        { status: 403 },
-      );
-    }
-
-    console.error("Delete product error:", error);
 
     return NextResponse.json(
-      { message: "Unable to deactivate the product." },
-      { status: 500 },
+      { message: "Product created successfully.", product },
+      { status: 201 },
     );
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return NextResponse.json({ message: "Admin access required." }, { status: 403 });
+    }
+    console.error("Create product API error:", error);
+    return NextResponse.json({ message: "Unable to create product." }, { status: 500 });
   }
 }

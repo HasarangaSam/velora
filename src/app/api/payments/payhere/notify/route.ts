@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@/generated/prisma/client";
-import { prisma } from "@/lib/db/prisma";
+import { Prisma, prisma } from "@/lib/db/prisma";
 import {
   generatePayHereNotificationSignature,
   verifyPayHereSignature,

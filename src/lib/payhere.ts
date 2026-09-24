@@ -1,26 +1,5 @@
 import { createHash, timingSafeEqual } from "crypto";
 
-const merchantId = process.env.PAYHERE_MERCHANT_ID;
-const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
-const notifyUrl = process.env.PAYHERE_NOTIFY_URL;
-const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-
-if (!merchantId) {
-  throw new Error("PAYHERE_MERCHANT_ID is not configured.");
-}
-
-if (!merchantSecret) {
-  throw new Error("PAYHERE_MERCHANT_SECRET is not configured.");
-}
-
-if (!notifyUrl) {
-  throw new Error("PAYHERE_NOTIFY_URL is not configured.");
-}
-
-if (!appUrl) {
-  throw new Error("NEXT_PUBLIC_APP_URL is not configured.");
-}
-
 export const PAYHERE_CURRENCY = "LKR";
 
 export const PAYHERE_CHECKOUT_URL =
@@ -41,6 +20,8 @@ export function generatePayHereHash(
   amount: string,
   currency: string,
 ) {
+  const merchantId = process.env.PAYHERE_MERCHANT_ID ?? "";
+  const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET ?? "";
   const hashedSecret = md5(merchantSecret);
 
   return md5(`${merchantId}${orderId}${amount}${currency}${hashedSecret}`);
@@ -57,6 +38,8 @@ export function generatePayHereNotificationSignature({
   currency: string;
   statusCode: string;
 }) {
+  const merchantId = process.env.PAYHERE_MERCHANT_ID ?? "";
+  const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET ?? "";
   const hashedSecret = md5(merchantSecret);
 
   return md5(
@@ -116,7 +99,11 @@ export function createPayHerePaymentData({
     city: string;
   };
   items: string;
-}) {
+}): Record<string, string> {
+  const merchantId = process.env.PAYHERE_MERCHANT_ID ?? "";
+  const notifyUrl = process.env.PAYHERE_NOTIFY_URL ?? "";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
   const formattedAmount = formatPayHereAmount(amount);
   const { firstName, lastName } = splitName(customer.name);
 
@@ -147,3 +134,4 @@ export function createPayHerePaymentData({
     hash: generatePayHereHash(orderNumber, formattedAmount, PAYHERE_CURRENCY),
   };
 }
+

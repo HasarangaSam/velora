@@ -15,6 +15,29 @@ export type CatalogQuery = {
   page?: string;
 };
 
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  category: {
+    name: string;
+    slug: string;
+  };
+  image: string | null;
+  priceFrom: string | null;
+  totalStock: number;
+};
+
+export type CatalogResult = {
+  products: CatalogProduct[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
 function buildCacheKey(query: z.infer<typeof catalogQuerySchema>) {
   return [
     "velora:products",
@@ -27,7 +50,9 @@ function buildCacheKey(query: z.infer<typeof catalogQuerySchema>) {
   ].join(":");
 }
 
-export async function getCatalogProducts(rawQuery: CatalogQuery) {
+export async function getCatalogProducts(
+  rawQuery: CatalogQuery,
+): Promise<CatalogResult> {
   const parsed = catalogQuerySchema.safeParse(rawQuery);
 
   const query = parsed.success ? parsed.data : catalogQuerySchema.parse({});
@@ -38,7 +63,7 @@ export async function getCatalogProducts(rawQuery: CatalogQuery) {
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      return JSON.parse(cached);
+      return JSON.parse(cached) as CatalogResult;
     }
   } catch (error) {
     console.error("Redis catalog read error:", error);
