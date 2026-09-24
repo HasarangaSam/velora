@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+
 import AddressSelector, {
   type CheckoutAddress,
 } from "@/components/checkout/AddressSelector";
+
 import type { CartData } from "@/types/cart";
 
 export default function CheckoutPageClient() {
@@ -17,6 +19,9 @@ export default function CheckoutPageClient() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
 
   async function loadCheckoutData() {
     try {
@@ -69,6 +74,42 @@ export default function CheckoutPageClient() {
     () => addresses.find((address) => address.id === selectedAddressId) ?? null,
     [addresses, selectedAddressId],
   );
+
+  async function handleCreateOrder() {
+    if (!selectedAddressId) {
+      setError("Please select a delivery address.");
+      return;
+    }
+
+    setCreatingOrder(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          addressId: selectedAddressId,
+          couponCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message ?? "Unable to create your order.");
+        return;
+      }
+
+      window.location.href = `/checkout/payment?orderId=${data.order.id}`;
+    } catch {
+      setError("Unable to create your order.");
+    } finally {
+      setCreatingOrder(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -218,6 +259,30 @@ export default function CheckoutPageClient() {
             </span>
           </div>
 
+          <div className="mt-6">
+            <label
+              htmlFor="coupon"
+              className="mb-2 block text-sm font-medium text-slate-700"
+            >
+              Coupon Code
+            </label>
+
+            <input
+              id="coupon"
+              value={couponCode}
+              onChange={(event) =>
+                setCouponCode(event.target.value.toUpperCase())
+              }
+              placeholder="Enter coupon code"
+              className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+            />
+
+            <p className="mt-2 text-xs text-slate-500">
+              The coupon will be validated again on the server when your order
+              is created.
+            </p>
+          </div>
+
           <div className="my-5 border-t border-slate-200" />
 
           <div className="flex items-center justify-between">
@@ -230,11 +295,13 @@ export default function CheckoutPageClient() {
 
           <button
             type="button"
-            disabled={!selectedAddress}
+            onClick={handleCreateOrder}
+            disabled={!selectedAddress || creatingOrder}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Continue to Payment
-            <ArrowRight size={17} />
+            {creatingOrder ? "Creating Order..." : "Continue to Payment"}
+
+            {!creatingOrder && <ArrowRight size={17} />}
           </button>
 
           {!selectedAddress && (
