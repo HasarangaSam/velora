@@ -92,6 +92,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: token.id,
         },
         select: {
+          name: true,
+          email: true,
           role: true,
           sessionVersion: true,
         },
@@ -109,6 +111,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       token.role = currentUser.role;
+      token.name = currentUser.name ?? undefined;
+      token.email = currentUser.email ?? undefined;
       token.sessionVersion = currentUser.sessionVersion;
 
       return token;
@@ -122,6 +126,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       ) {
         session.user.id = token.id;
         session.user.role = token.role;
+        session.user.name = token.name ?? null;
+        session.user.email = typeof token.email === "string" ? token.email : "";
       }
 
       return session;

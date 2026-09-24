@@ -12,6 +12,7 @@ export default function LoginForm() {
 
   const isVerified = params.get("verified") === "true";
   const isPasswordReset = params.get("passwordReset") === "true";
+  const isPasswordUpdated = params.get("passwordUpdated") === "true";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,12 +70,14 @@ export default function LoginForm() {
         </p>
       </div>
 
-      {(isVerified || isPasswordReset) && (
+      {(isVerified || isPasswordReset || isPasswordUpdated) && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           <ShieldCheck size={16} className="shrink-0" />
           {isVerified
             ? "Email verified! You can now sign in."
-            : "Password reset successfully. Please sign in with your new password."}
+            : isPasswordReset
+              ? "Password reset successfully. Please sign in with your new password."
+              : "Password updated. Sign in with your new password."}
         </div>
       )}
 

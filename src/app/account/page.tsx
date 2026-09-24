@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Package,
+  UserRound,
 } from "lucide-react";
 
 export default async function AccountPage() {
@@ -67,7 +68,21 @@ export default async function AccountPage() {
         </div>
 
         {/* Quick Nav Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <Link
+            href="/account/profile"
+            className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-stone-400 hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-stone-100 text-stone-700">
+                <UserRound size={20} />
+              </div>
+              <span className="text-xs font-semibold text-stone-600 transition-transform group-hover:translate-x-1">Edit →</span>
+            </div>
+            <h2 className="mt-4 text-lg font-bold text-slate-900">Profile & security</h2>
+            <p className="mt-1 text-xs text-slate-500">Update your name, change your password, or close your account.</p>
+          </Link>
+
           <Link
             href="/account/orders"
             className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:border-blue-500 hover:shadow-md transition"

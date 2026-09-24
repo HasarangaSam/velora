@@ -24,7 +24,7 @@ export default function UserRoleToggle({
     if (!confirmed) return;
 
     startTransition(async () => {
-      const res = await toggleUserRole(userId, currentRole);
+      const res = await toggleUserRole(userId);
       if (!res.success) {
         alert(res.message);
       }
@@ -41,6 +41,7 @@ export default function UserRoleToggle({
 
   return (
     <button
+      type="button"
       onClick={handleToggle}
       disabled={isPending}
       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition disabled:opacity-60 ${

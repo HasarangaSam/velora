@@ -14,6 +14,7 @@ import {
   X,
   ShieldCheck,
   ChevronDown,
+  ShoppingBag,
 } from "lucide-react";
 
 export default function Navbar() {

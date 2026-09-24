@@ -10,6 +10,7 @@ type ProductCardProps = {
       name: string;
       slug: string;
     };
+    subCategory?: { name: string } | null;
     image: string | null;
     priceFrom: string | null;
     totalStock: number;
