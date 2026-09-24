@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { prisma } from "@/lib/db/prisma";
 import EditProductForm from "@/components/admin/EditProductForm";
+import ProductImageManager from "@/components/admin/ProductImageManager";
 
 type ProductEditPageProps = {
   params: Promise<{
@@ -43,6 +44,11 @@ export default async function ProductEditPage({
             },
           ],
         },
+        images: {
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
       },
     }),
 
@@ -77,6 +83,14 @@ export default async function ProductEditPage({
     })),
   };
 
+  const serializedImages = product.images.map((image) => ({
+    id: image.id,
+    url: image.url,
+    publicId: image.publicId,
+    sortOrder: image.sortOrder,
+    isPrimary: image.isPrimary,
+  }));
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-5xl">
@@ -91,7 +105,7 @@ export default async function ProductEditPage({
             </h1>
 
             <p className="mt-2 text-sm text-slate-500">
-              Update product information, variants and inventory.
+              Update product information, variants, inventory and images.
             </p>
           </div>
 
@@ -103,7 +117,17 @@ export default async function ProductEditPage({
           </Link>
         </div>
 
-        <EditProductForm product={serializedProduct} categories={categories} />
+        <div className="space-y-8">
+          <EditProductForm
+            product={serializedProduct}
+            categories={categories}
+          />
+
+          <ProductImageManager
+            productId={product.id}
+            initialImages={serializedImages}
+          />
+        </div>
       </div>
     </main>
   );

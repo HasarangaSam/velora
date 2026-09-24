@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/require-admin";
 import { prisma } from "@/lib/db/prisma";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import cloudinary from "@/lib/cloudinary";
+
+export const runtime = "nodejs";
 
 type RouteContext = {
   params: Promise<{
@@ -13,11 +15,11 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     await requireAdmin();
 
-    const { id: productId } = await context.params;
+    const { id } = await context.params;
 
     const product = await prisma.product.findUnique({
       where: {
-        id: productId,
+        id,
       },
       select: {
         id: true,
@@ -36,7 +38,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     if (!(file instanceof File)) {
       return NextResponse.json(
-        { message: "An image is required." },
+        { message: "Please select an image." },
         { status: 400 },
       );
     }
@@ -55,8 +57,13 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const existingImageCount = await prisma.productImage.count({
+      where: {
+        productId: id,
+      },
+    });
+
+    const buffer = Buffer.from(await file.arrayBuffer());
 
     const uploadResult = await new Promise<{
       secure_url: string;
@@ -83,23 +90,23 @@ export async function POST(request: Request, context: RouteContext) {
       uploadStream.end(buffer);
     });
 
-    const imageCount = await prisma.productImage.count({
-      where: {
-        productId,
-      },
-    });
-
     const image = await prisma.productImage.create({
       data: {
-        productId,
+        productId: id,
         url: uploadResult.secure_url,
         publicId: uploadResult.public_id,
-        sortOrder: imageCount,
-        isPrimary: imageCount === 0,
+        sortOrder: existingImageCount,
+        isPrimary: existingImageCount === 0,
       },
     });
 
-    return NextResponse.json(image, { status: 201 });
+    return NextResponse.json(
+      {
+        message: "Image uploaded successfully.",
+        image,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json(
@@ -118,7 +125,7 @@ export async function POST(request: Request, context: RouteContext) {
     console.error("Upload product image error:", error);
 
     return NextResponse.json(
-      { message: "Unable to upload product image." },
+      { message: "Unable to upload the image." },
       { status: 500 },
     );
   }
