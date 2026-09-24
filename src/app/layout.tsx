@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import AuthSessionProvider from "@/components/auth/SessionProvider";
 import CartSync from "@/components/shop/CartSync";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import "./globals.css";
 
 const inter = Inter({
@@ -10,10 +12,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Velora",
+    default: "Velora | Sri Lankan Fashion & Clothing",
     template: "%s | Velora",
   },
-  description: "Fashion and clothing for everyday style.",
+  description: "Modern, comfortable clothing designed for everyday Sri Lankan living.",
 };
 
 export default function RootLayout({
@@ -23,10 +25,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} min-h-screen flex flex-col bg-white text-slate-900`}>
         <AuthSessionProvider>
           <CartSync />
-          {children}
+          <Navbar />
+          <div className="flex-1">{children}</div>
+          <Footer />
         </AuthSessionProvider>
       </body>
     </html>
