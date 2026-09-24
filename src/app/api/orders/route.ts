@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
 import { calculateOrderTotals } from "@/lib/order";
 import { createOrderSchema } from "@/lib/validation/order";
+import { checkRateLimit } from "@/lib/redis";
 
 function generateOrderNumber() {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -91,6 +92,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const user = await requireUser();
+
+    const { success } = await checkRateLimit(`order:${user.id}`, 10, 600);
+    if (!success) {
+      return NextResponse.json(
+        { message: "Too many checkout requests. Please wait a few minutes." },
+        { status: 429 },
+      );
+    }
 
     const body = await request.json();
 
