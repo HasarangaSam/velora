@@ -1,10 +1,13 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db/prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  adapter: PrismaAdapter(prisma),
+
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -75,37 +78,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.sessionVersion = user.sessionVersion;
       }
 
-      if (token.id) {
-        const currentUser = await prisma.user.findUnique({
-          where: {
-            id: token.id,
-          },
-          select: {
-            role: true,
-            sessionVersion: true,
-          },
-        });
-
-        if (!currentUser) {
-          return {};
-        }
-
-        if (
-          typeof token.sessionVersion === "number" &&
-          currentUser.sessionVersion !== token.sessionVersion
-        ) {
-          return {};
-        }
-
-        token.role = currentUser.role;
-        token.sessionVersion = currentUser.sessionVersion;
+      if (typeof token.id !== "string") {
+        return token;
       }
+
+      const currentUser = await prisma.user.findUnique({
+        where: {
+          id: token.id,
+        },
+        select: {
+          role: true,
+          sessionVersion: true,
+        },
+      });
+
+      if (!currentUser) {
+        return {};
+      }
+
+      if (
+        typeof token.sessionVersion === "number" &&
+        currentUser.sessionVersion !== token.sessionVersion
+      ) {
+        return {};
+      }
+
+      token.role = currentUser.role;
+      token.sessionVersion = currentUser.sessionVersion;
 
       return token;
     },
 
     async session({ session, token }) {
-      if (session.user && token.id) {
+      if (session.user && typeof token.id === "string" && token.role) {
         session.user.id = token.id;
         session.user.role = token.role;
       }
