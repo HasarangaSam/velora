@@ -83,7 +83,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
 
             {variants.length > 0 ? (
-              <ProductPurchase variants={variants} />
+              <ProductPurchase
+                productId={product.id}
+                productName={product.name}
+                slug={product.slug}
+                image={product.images[0]?.url ?? null}
+                variants={product.variants.map((variant) => ({
+                  id: variant.id,
+                  size: variant.size,
+                  colour: variant.colour,
+                  price: variant.price.toString(),
+                  stock: variant.stock,
+                }))}
+              />
             ) : (
               <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="text-sm font-medium text-slate-700">

@@ -1,9 +1,11 @@
 "use client";
 
-import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Minus, Plus, ShoppingCart } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useCartStore } from "@/lib/cart-store";
 
-type Variant = {
+type ProductVariant = {
   id: string;
   size: string;
   colour: string;
@@ -12,115 +14,187 @@ type Variant = {
 };
 
 type ProductPurchaseProps = {
-  variants: Variant[];
+  productId: string;
+  productName: string;
+  slug: string;
+  image: string | null;
+  variants: ProductVariant[];
 };
 
-export default function ProductPurchase({ variants }: ProductPurchaseProps) {
+export default function ProductPurchase({
+  productId,
+  productName,
+  slug,
+  image,
+  variants,
+}: ProductPurchaseProps) {
+  const { status } = useSession();
+
+  const addGuestItem = useCartStore((state) => state.addItem);
+
+  const [selectedSize, setSelectedSize] = useState(variants[0]?.size ?? "");
+
+  const [selectedColour, setSelectedColour] = useState(
+    variants[0]?.colour ?? "",
+  );
+
+  const [quantity, setQuantity] = useState(1);
+  const [isAdding, setIsAdding] = useState(false);
+  const [message, setMessage] = useState("");
+
   const availableSizes = useMemo(
-    () => [...new Set(variants.map((variant) => variant.size))],
+    () => Array.from(new Set(variants.map((variant) => variant.size))),
     [variants],
   );
 
   const availableColours = useMemo(
-    () => [...new Set(variants.map((variant) => variant.colour))],
+    () => Array.from(new Set(variants.map((variant) => variant.colour))),
     [variants],
   );
-
-  const [selectedSize, setSelectedSize] = useState(availableSizes[0] ?? "");
-
-  const [selectedColour, setSelectedColour] = useState(
-    availableColours[0] ?? "",
-  );
-
-  const [quantity, setQuantity] = useState(1);
 
   const selectedVariant = variants.find(
     (variant) =>
       variant.size === selectedSize && variant.colour === selectedColour,
   );
 
-  const price = selectedVariant ? Number(selectedVariant.price) : null;
-
-  const maxQuantity = selectedVariant?.stock ?? 1;
+  const matchingColours = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          variants
+            .filter((variant) => variant.size === selectedSize)
+            .map((variant) => variant.colour),
+        ),
+      ),
+    [variants, selectedSize],
+  );
 
   function handleSizeChange(size: string) {
     setSelectedSize(size);
 
-    const matchingColours = variants
+    const coloursForSize = variants
       .filter((variant) => variant.size === size)
       .map((variant) => variant.colour);
 
-    if (!matchingColours.includes(selectedColour)) {
-      setSelectedColour(matchingColours[0] ?? "");
+    if (!coloursForSize.includes(selectedColour)) {
+      setSelectedColour(coloursForSize[0] ?? "");
     }
 
     setQuantity(1);
+    setMessage("");
   }
 
   function handleColourChange(colour: string) {
     setSelectedColour(colour);
     setQuantity(1);
+    setMessage("");
   }
 
-  function decreaseQuantity() {
-    setQuantity((current) => Math.max(1, current - 1));
+  async function handleAddToCart() {
+    if (!selectedVariant) {
+      setMessage("Please select an available size and colour.");
+      return;
+    }
+
+    setIsAdding(true);
+    setMessage("");
+
+    try {
+      if (status === "authenticated") {
+        const response = await fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            variantId: selectedVariant.id,
+            quantity,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          setMessage(data.message ?? "Unable to add the item.");
+          return;
+        }
+
+        setMessage("Added to cart.");
+      } else {
+        addGuestItem({
+          productId,
+          variantId: selectedVariant.id,
+          productName,
+          slug,
+          image,
+          size: selectedVariant.size,
+          colour: selectedVariant.colour,
+          price: selectedVariant.price,
+          quantity,
+          stock: selectedVariant.stock,
+        });
+
+        setMessage("Added to cart.");
+      }
+    } catch {
+      setMessage("Something went wrong. Please try again.");
+    } finally {
+      setIsAdding(false);
+    }
   }
 
-  function increaseQuantity() {
-    setQuantity((current) => Math.min(maxQuantity, current + 1));
-  }
+  const price = selectedVariant?.price ?? variants[0]?.price ?? "0.00";
+  const stock = selectedVariant?.stock ?? 0;
 
   return (
-    <div className="mt-8 border-t border-slate-200 pt-8">
+    <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-semibold text-slate-900">Size</h3>
+        <p className="text-2xl font-semibold text-slate-900">
+          LKR {Number(price).toLocaleString("en-LK")}
+        </p>
+      </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {availableSizes.map((size) => {
-            const sizeAvailable = variants.some(
-              (variant) => variant.size === size,
-            );
+      <div>
+        <p className="mb-3 text-sm font-medium text-slate-900">Size</p>
 
-            return (
-              <button
-                key={size}
-                type="button"
-                disabled={!sizeAvailable}
-                onClick={() => handleSizeChange(size)}
-                className={`min-w-12 rounded-lg border px-4 py-2.5 text-sm font-medium ${
-                  selectedSize === size
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-blue-400"
-                } disabled:cursor-not-allowed disabled:opacity-40`}
-              >
-                {size}
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap gap-2">
+          {availableSizes.map((size) => (
+            <button
+              key={size}
+              type="button"
+              onClick={() => handleSizeChange(size)}
+              className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                selectedSize === size
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-blue-500"
+              }`}
+            >
+              {size}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="mt-6">
-        <h3 className="text-sm font-semibold text-slate-900">Colour</h3>
+      <div>
+        <p className="mb-3 text-sm font-medium text-slate-900">Colour</p>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {availableColours.map((colour) => {
-            const colourAvailable = variants.some(
-              (variant) =>
-                variant.colour === colour && variant.size === selectedSize,
-            );
+            const isAvailable = matchingColours.includes(colour);
 
             return (
               <button
                 key={colour}
                 type="button"
-                disabled={!colourAvailable}
+                disabled={!isAvailable}
                 onClick={() => handleColourChange(colour)}
-                className={`rounded-lg border px-4 py-2.5 text-sm font-medium ${
+                className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
                   selectedColour === colour
                     ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-blue-400"
-                } disabled:cursor-not-allowed disabled:opacity-40`}
+                    : isAvailable
+                      ? "border-slate-300 bg-white text-slate-700 hover:border-blue-500"
+                      : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                }`}
               >
                 {colour}
               </button>
@@ -129,65 +203,53 @@ export default function ProductPurchase({ variants }: ProductPurchaseProps) {
         </div>
       </div>
 
-      <div className="mt-6">
-        {selectedVariant ? (
-          <div>
-            <p className="text-2xl font-bold text-slate-900">
-              LKR{" "}
-              {price?.toLocaleString("en-LK", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </p>
-
-            <p className="mt-1 text-sm text-slate-500">
-              {selectedVariant.stock} available
-            </p>
-          </div>
-        ) : (
-          <p className="text-sm font-medium text-red-600">
-            This size and colour combination is currently unavailable.
-          </p>
-        )}
-      </div>
-
       {selectedVariant && (
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <div className="flex h-12 items-center rounded-lg border border-slate-300">
-            <button
-              type="button"
-              onClick={decreaseQuantity}
-              disabled={quantity <= 1}
-              className="flex h-full w-11 items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-              aria-label="Decrease quantity"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
+        <p className="text-sm text-slate-500">{stock} available</p>
+      )}
 
-            <span className="w-10 text-center text-sm font-medium text-slate-900">
-              {quantity}
-            </span>
+      <div>
+        <p className="mb-3 text-sm font-medium text-slate-900">Quantity</p>
 
-            <button
-              type="button"
-              onClick={increaseQuantity}
-              disabled={quantity >= maxQuantity}
-              className="flex h-full w-11 items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-              aria-label="Increase quantity"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
+        <div className="flex w-fit items-center rounded-md border border-slate-300">
+          <button
+            type="button"
+            onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+            disabled={quantity <= 1}
+            className="p-2 text-slate-600 disabled:opacity-40"
+          >
+            <Minus size={16} />
+          </button>
+
+          <span className="min-w-10 text-center text-sm font-medium">
+            {quantity}
+          </span>
 
           <button
             type="button"
-            className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 font-medium text-white hover:bg-blue-700"
+            onClick={() =>
+              setQuantity((current) => Math.min(stock, current + 1))
+            }
+            disabled={!selectedVariant || quantity >= stock}
+            className="p-2 text-slate-600 disabled:opacity-40"
           >
-            <ShoppingBag className="h-5 w-5" />
-            Add to cart
+            <Plus size={16} />
           </button>
         </div>
-      )}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleAddToCart}
+        disabled={
+          status === "loading" || isAdding || !selectedVariant || stock <= 0
+        }
+        className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+      >
+        <ShoppingCart size={18} />
+        {isAdding ? "Adding..." : "Add to Cart"}
+      </button>
+
+      {message && <p className="text-sm text-slate-600">{message}</p>}
     </div>
   );
 }
