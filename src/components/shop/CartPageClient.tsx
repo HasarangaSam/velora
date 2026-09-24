@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ShoppingBag } from "lucide-react";
 import { useSession } from "next-auth/react";
 import CartItem from "@/components/shop/CartItem";
-import { useCartStore } from "@/lib/cart-store";
+import { useCartStore } from "@/store";
 import type { CartData, CartItemData } from "@/types/cart";
 
 export default function CartPageClient() {
@@ -47,6 +47,9 @@ export default function CartPageClient() {
         }
 
         setServerCart(data);
+        if (data.items) {
+          useCartStore.getState().replaceItems(data.items);
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Unable to load the cart.",
@@ -97,6 +100,9 @@ export default function CartPageClient() {
       }
 
       setServerCart(data.cart);
+      if (data.cart?.items) {
+        useCartStore.getState().replaceItems(data.cart.items);
+      }
     } catch {
       setError("Unable to update the cart.");
     } finally {
@@ -125,6 +131,9 @@ export default function CartPageClient() {
       }
 
       setServerCart(data.cart);
+      if (data.cart?.items) {
+        useCartStore.getState().replaceItems(data.cart.items);
+      }
     } catch {
       setError("Unable to remove the item.");
     } finally {

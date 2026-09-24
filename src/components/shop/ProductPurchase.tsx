@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Minus, Plus, ShoppingCart } from "lucide-react";
+import { Check, Minus, Plus, ShoppingCart } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useCartStore } from "@/lib/cart-store";
+import { useCartStore } from "@/store";
 
 type ProductVariant = {
   id: string;
@@ -41,6 +42,7 @@ export default function ProductPurchase({
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [message, setMessage] = useState("");
+  const [addedSuccess, setAddedSuccess] = useState(false);
 
   const availableSizes = useMemo(
     () => Array.from(new Set(variants.map((variant) => variant.size))),
@@ -98,6 +100,7 @@ export default function ProductPurchase({
 
     setIsAdding(true);
     setMessage("");
+    setAddedSuccess(false);
 
     try {
       if (status === "authenticated") {
@@ -115,11 +118,17 @@ export default function ProductPurchase({
         const data = await response.json();
 
         if (!response.ok) {
+          setAddedSuccess(false);
           setMessage(data.message ?? "Unable to add the item.");
           return;
         }
 
-        setMessage("Added to cart.");
+        if (data.cart?.items) {
+          useCartStore.getState().replaceItems(data.cart.items);
+        }
+
+        setAddedSuccess(true);
+        setMessage("Item added to cart.");
       } else {
         addGuestItem({
           productId,
@@ -134,9 +143,11 @@ export default function ProductPurchase({
           stock: selectedVariant.stock,
         });
 
-        setMessage("Added to cart.");
+        setAddedSuccess(true);
+        setMessage("Item added to cart.");
       }
     } catch {
+      setAddedSuccess(false);
       setMessage("Something went wrong. Please try again.");
     } finally {
       setIsAdding(false);
@@ -249,7 +260,28 @@ export default function ProductPurchase({
         {isAdding ? "Adding..." : "Add to Cart"}
       </button>
 
-      {message && <p className="text-sm text-slate-600">{message}</p>}
+      {message && (
+        <div
+          className={`flex items-center justify-between rounded-lg px-4 py-3 text-sm animate-in fade-in duration-200 ${
+            addedSuccess
+              ? "border border-green-200 bg-green-50 text-green-800"
+              : "border border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {addedSuccess && <Check className="h-4 w-4 text-green-600" />}
+            <span>{message}</span>
+          </div>
+          {addedSuccess && (
+            <Link
+              href="/cart"
+              className="font-semibold text-green-700 underline hover:text-green-900"
+            >
+              View Cart →
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -331,6 +331,13 @@ export async function POST(request: Request) {
         },
       });
 
+      // Clear cart items after order is created
+      await tx.cartItem.deleteMany({
+        where: {
+          cartId: cart.id,
+        },
+      });
+
       return createdOrder;
     });
 

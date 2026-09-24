@@ -152,3 +152,77 @@ export async function deleteCategory(
     return { ...initialState, message: "Unable to delete the category." };
   }
 }
+
+export async function updateCategory(
+  categoryId: string,
+  _previousState: CategoryActionState,
+  formData: FormData,
+): Promise<CategoryActionState> {
+  try {
+    await requireAdmin();
+
+    const name = formData.get("name");
+    const slug = formData.get("slug");
+    const rawParentId = formData.get("parentId");
+
+    const result = categorySchema.safeParse({
+      name,
+      slug,
+      parentId: rawParentId && rawParentId !== "" ? String(rawParentId) : undefined,
+    });
+
+    if (!result.success) {
+      return {
+        ...initialState,
+        message: "Please correct the category details.",
+        errors: result.error.flatten().fieldErrors,
+      };
+    }
+
+    const existing = await prisma.category.findFirst({
+      where: {
+        id: { not: categoryId },
+        OR: [
+          { name: { equals: result.data.name, mode: "insensitive" } },
+          { slug: result.data.slug },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return {
+        ...initialState,
+        message: "Another category with this name or slug already exists.",
+      };
+    }
+
+    await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        name: result.data.name,
+        slug: result.data.slug,
+        parentId: result.data.parentId ?? null,
+      },
+    });
+
+    revalidatePath("/admin/categories");
+    revalidatePath("/products");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      message: "Category updated successfully.",
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return { ...initialState, message: "Authentication required." };
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return { ...initialState, message: "Admin access required." };
+    }
+
+    console.error("Update category action error:", error);
+    return { ...initialState, message: "Unable to update category." };
+  }
+}

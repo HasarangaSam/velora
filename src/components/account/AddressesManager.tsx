@@ -3,6 +3,7 @@
 import { useState } from "react";
 import AddressForm from "@/components/checkout/AddressForm";
 import { Plus, MapPin, Trash2, CheckCircle2 } from "lucide-react";
+import { deleteAddress } from "@/app/account/addresses/actions";
 
 type Address = {
   id: string;
@@ -29,13 +30,11 @@ export default function AddressesManager({
     if (!confirm("Are you sure you want to remove this address?")) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/addresses/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
+      const res = await deleteAddress(id);
+      if (res.success) {
         setAddresses((prev) => prev.filter((a) => a.id !== id));
       } else {
-        alert("Failed to delete address.");
+        alert(res.message);
       }
     } catch {
       alert("Error deleting address.");

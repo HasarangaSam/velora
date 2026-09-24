@@ -24,7 +24,7 @@ export default async function NewProductPage() {
           <p className="text-sm font-medium text-blue-600">Products</p>
           <h1 className="mt-1 text-3xl font-bold text-slate-900">Add product</h1>
           <p className="mt-2 text-slate-500">
-            Create a product and define its available variants.
+            Add product details, variants and photos in one go.
           </p>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useCartStore } from "@/lib/cart-store";
+import { useCartStore } from "@/store";
 
 export default function CartSync() {
   const { status } = useSession();
@@ -10,56 +10,70 @@ export default function CartSync() {
   const clear = useCartStore((state) => state.clear);
   const replaceItems = useCartStore((state) => state.replaceItems);
 
-  const syncing = useRef(false);
+  const prevStatusRef = useRef(status);
+  const syncingRef = useRef(false);
 
   useEffect(() => {
-    if (status !== "authenticated" || items.length === 0 || syncing.current) {
+    // If user logged out, clear cart store to prevent lingering items
+    if (prevStatusRef.current === "authenticated" && status === "unauthenticated") {
+      clear();
+      prevStatusRef.current = status;
+      return;
+    }
+    prevStatusRef.current = status;
+
+    if (status !== "authenticated" || syncingRef.current) {
       return;
     }
 
-    syncing.current = true;
-
-    async function syncCart() {
+    async function syncOrLoadCart() {
+      syncingRef.current = true;
       try {
-        const response = await fetch("/api/cart/sync", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            items: items.map((item) => ({
-              variantId: item.variantId,
-              quantity: item.quantity,
-            })),
-          }),
-        });
+        const currentItems = useCartStore.getState().items;
 
-        if (!response.ok) {
-          return;
-        }
+        // If there are guest items in store, sync them with the user's DB cart
+        if (currentItems.length > 0) {
+          const response = await fetch("/api/cart/sync", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              items: currentItems.map((item) => ({
+                variantId: item.variantId,
+                quantity: item.quantity,
+              })),
+            }),
+          });
 
-        const data = await response.json();
-
-        const skippedIds = new Set<string>(data.skippedVariantIds ?? []);
-
-        const remainingGuestItems = items.filter((item) =>
-          skippedIds.has(item.variantId),
-        );
-
-        if (remainingGuestItems.length > 0) {
-          replaceItems(remainingGuestItems);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.cart?.items) {
+              replaceItems(data.cart.items);
+            }
+          }
         } else {
-          clear();
+          // If no guest items, load user's existing DB cart to populate store & navbar
+          const response = await fetch("/api/cart", {
+            cache: "no-store",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.items) {
+              replaceItems(data.items);
+            }
+          }
         }
       } catch (error) {
         console.error("Cart synchronization error:", error);
       } finally {
-        syncing.current = false;
+        syncingRef.current = false;
       }
     }
 
-    syncCart();
-  }, [status, items, clear, replaceItems]);
+    void syncOrLoadCart();
+  }, [status, clear, replaceItems]);
 
   return null;
 }

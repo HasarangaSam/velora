@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useCartStore } from "@/lib/cart-store";
+import { useCartStore } from "@/store";
 import LogoutButton from "@/components/auth/LogoutButton";
 import {
-  ShoppingBag,
+  ShoppingCart,
   User,
   Search,
   Menu,
@@ -19,6 +19,8 @@ import {
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const selectedCategory = searchParams.get("category") ?? "";
   const { data: session } = useSession();
   const cartItems = useCartStore((state) => state.items);
   const [mounted, setMounted] = useState(false);
@@ -37,6 +39,13 @@ export default function Navbar() {
   const totalCartCount = mounted
     ? cartItems.reduce((acc, item) => acc + item.quantity, 0)
     : 0;
+
+  function isCollectionActive(slug: string) {
+    return pathname === "/shop" &&
+      (selectedCategory === slug || selectedCategory.startsWith(`${slug}-`));
+  }
+
+  const allProductsActive = pathname === "/shop" && !selectedCategory;
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,28 +78,32 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-700">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
             <Link
               href="/shop"
-              className="hover:text-blue-600 transition"
+              aria-current={allProductsActive ? "page" : undefined}
+              className={`relative py-2 transition ${allProductsActive ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
             >
               All Products
             </Link>
             <Link
               href="/shop?category=men"
-              className="hover:text-blue-600 transition"
+              aria-current={isCollectionActive("men") ? "page" : undefined}
+              className={`relative py-2 transition ${isCollectionActive("men") ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
             >
               Men
             </Link>
             <Link
               href="/shop?category=women"
-              className="hover:text-blue-600 transition"
+              aria-current={isCollectionActive("women") ? "page" : undefined}
+              className={`relative py-2 transition ${isCollectionActive("women") ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
             >
               Women
             </Link>
             <Link
               href="/shop?category=kids"
-              className="hover:text-blue-600 transition"
+              aria-current={isCollectionActive("kids") ? "page" : undefined}
+              className={`relative py-2 transition ${isCollectionActive("kids") ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
             >
               Kids
             </Link>
@@ -200,7 +213,7 @@ export default function Navbar() {
               className="relative p-2 text-slate-700 hover:text-blue-600 transition"
               aria-label="View Shopping Cart"
             >
-              <ShoppingBag size={22} />
+              <ShoppingCart size={22} strokeWidth={1.8} />
               {totalCartCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
                   {totalCartCount > 99 ? "99+" : totalCartCount}
@@ -228,32 +241,36 @@ export default function Navbar() {
             />
           </form>
 
-          <nav className="flex flex-col space-y-2 text-sm font-semibold text-slate-800">
+          <nav className="flex flex-col space-y-1 text-sm font-medium">
             <Link
               href="/shop"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-2 py-1.5 rounded hover:bg-slate-50"
+              aria-current={allProductsActive ? "page" : undefined}
+              className={`rounded-lg px-3 py-2 transition ${allProductsActive ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
               All Products
             </Link>
             <Link
               href="/shop?category=men"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-2 py-1.5 rounded hover:bg-slate-50"
+              aria-current={isCollectionActive("men") ? "page" : undefined}
+              className={`rounded-lg px-3 py-2 transition ${isCollectionActive("men") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
               Men's Fashion
             </Link>
             <Link
               href="/shop?category=women"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-2 py-1.5 rounded hover:bg-slate-50"
+              aria-current={isCollectionActive("women") ? "page" : undefined}
+              className={`rounded-lg px-3 py-2 transition ${isCollectionActive("women") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
               Women's Fashion
             </Link>
             <Link
               href="/shop?category=kids"
               onClick={() => setMobileMenuOpen(false)}
-              className="px-2 py-1.5 rounded hover:bg-slate-50"
+              aria-current={isCollectionActive("kids") ? "page" : undefined}
+              className={`rounded-lg px-3 py-2 transition ${isCollectionActive("kids") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
               Kids' Collection
             </Link>

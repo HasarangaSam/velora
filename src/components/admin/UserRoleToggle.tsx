@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useTransition } from "react";
 import { toggleUserRole } from "@/app/admin/users/actions";
-import { Shield, ShieldAlert } from "lucide-react";
+import { Shield, ShieldAlert, Loader2 } from "lucide-react";
 
 export default function UserRoleToggle({
   userId,
@@ -13,24 +13,22 @@ export default function UserRoleToggle({
   currentRole: string;
   isSelf: boolean;
 }) {
-  const [loading, setLoading] = useState(false);
-  const [role, setRole] = useState(currentRole);
+  const [isPending, startTransition] = useTransition();
 
-  async function handleToggle() {
-    if (isSelf || loading) return;
+  function handleToggle() {
+    if (isSelf || isPending) return;
+    const targetRole = currentRole === "ADMIN" ? "USER" : "ADMIN";
     const confirmed = confirm(
-      `Are you sure you want to change this user's role to ${role === "ADMIN" ? "USER" : "ADMIN"}?`,
+      `Are you sure you want to change this user's role to ${targetRole}?`,
     );
     if (!confirmed) return;
 
-    setLoading(true);
-    const res = await toggleUserRole(userId, role);
-    if (res.success) {
-      setRole(role === "ADMIN" ? "USER" : "ADMIN");
-    } else {
-      alert(res.message);
-    }
-    setLoading(false);
+    startTransition(async () => {
+      const res = await toggleUserRole(userId, currentRole);
+      if (!res.success) {
+        alert(res.message);
+      }
+    });
   }
 
   if (isSelf) {
@@ -44,14 +42,16 @@ export default function UserRoleToggle({
   return (
     <button
       onClick={handleToggle}
-      disabled={loading}
+      disabled={isPending}
       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition disabled:opacity-60 ${
-        role === "ADMIN"
+        currentRole === "ADMIN"
           ? "bg-purple-100 text-purple-800 hover:bg-purple-200"
           : "bg-slate-100 text-slate-700 hover:bg-slate-200"
       }`}
     >
-      {role === "ADMIN" ? (
+      {isPending ? (
+        <Loader2 size={13} className="animate-spin" />
+      ) : currentRole === "ADMIN" ? (
         <>
           <ShieldAlert size={13} />
           Demote to User

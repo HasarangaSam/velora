@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useTransition } from "react";
+import { deleteCategory } from "@/app/admin/categories/actions";
 
 type Props = {
   categoryId: string;
 };
 
 export default function DeleteCategoryButton({ categoryId }: Props) {
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  async function handleDelete() {
+  function handleDelete() {
     const confirmed = window.confirm(
       "Are you sure you want to delete this category?",
     );
@@ -18,36 +19,22 @@ export default function DeleteCategoryButton({ categoryId }: Props) {
       return;
     }
 
-    setIsDeleting(true);
-
-    try {
-      const response = await fetch(`/api/admin/categories/${categoryId}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        window.alert(data.message ?? "Unable to delete category.");
-        return;
+    startTransition(async () => {
+      const res = await deleteCategory(categoryId);
+      if (!res.success) {
+        window.alert(res.message);
       }
-
-      window.location.reload();
-    } catch {
-      window.alert("Something went wrong.");
-    } finally {
-      setIsDeleting(false);
-    }
+    });
   }
 
   return (
     <button
       type="button"
       onClick={handleDelete}
-      disabled={isDeleting}
+      disabled={isPending}
       className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
     >
-      {isDeleting ? "Deleting..." : "Delete"}
+      {isPending ? "Deleting..." : "Delete"}
     </button>
   );
 }

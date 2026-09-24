@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import AddressSelector, {
   type CheckoutAddress,
 } from "@/components/checkout/AddressSelector";
+import { useCartStore } from "@/store";
 
 import type { CartData } from "@/types/cart";
 
@@ -75,6 +76,8 @@ export default function CheckoutPageClient() {
     [addresses, selectedAddressId],
   );
 
+  const clearCart = useCartStore((state) => state.clear);
+
   async function handleCreateOrder() {
     if (!selectedAddressId) {
       setError("Please select a delivery address.");
@@ -102,6 +105,9 @@ export default function CheckoutPageClient() {
         setError(data.message ?? "Unable to create your order.");
         return;
       }
+
+      // Clear local cart store — DB cart already cleared by the server
+      clearCart();
 
       window.location.href = `/checkout/payment?orderId=${data.order.id}`;
     } catch {

@@ -3,22 +3,28 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 
 export default function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
+
+  const isVerified = params.get("verified") === "true";
+  const isPasswordReset = params.get("passwordReset") === "true";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [showVerifyHint, setShowVerifyHint] = useState(false);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
+    setShowVerifyHint(false);
     setPending(true);
 
     const result = await signIn("credentials", {
@@ -28,7 +34,8 @@ export default function LoginForm() {
     });
 
     if (!result || result.error) {
-      setError("Invalid email or password.");
+      setError("Invalid email or password. If you just registered, please verify your email first.");
+      setShowVerifyHint(true);
       setPending(false);
       return;
     }
@@ -61,6 +68,15 @@ export default function LoginForm() {
           Access your orders and account details.
         </p>
       </div>
+
+      {(isVerified || isPasswordReset) && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <ShieldCheck size={16} className="shrink-0" />
+          {isVerified
+            ? "Email verified! You can now sign in."
+            : "Password reset successfully. Please sign in with your new password."}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <button
@@ -154,9 +170,17 @@ export default function LoginForm() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </p>
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              <p>{error}</p>
+              {showVerifyHint && (
+                <Link
+                  href={`/verify-email?email=${encodeURIComponent(email)}`}
+                  className="mt-1 inline-block font-semibold underline hover:text-red-700"
+                >
+                  Go to email verification →
+                </Link>
+              )}
+            </div>
           )}
 
           <button

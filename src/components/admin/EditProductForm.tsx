@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { PRODUCT_COLOURS, PRODUCT_SIZES } from "@/lib/catalog";
+import SubmitButton from "./SubmitButton";
+import {
+  updateProduct,
+  type ProductActionState,
+} from "@/app/admin/products/actions";
 
 type Variant = {
   id?: string;
@@ -52,10 +57,18 @@ const emptyVariant: Variant = {
   stock: "0",
 };
 
+const initialState: ProductActionState = {
+  success: false,
+  message: "",
+};
+
 export default function EditProductForm({
   product,
   categories,
 }: EditProductFormProps) {
+  const updateProductWithId = updateProduct.bind(null, product.id);
+  const [state, formAction] = useActionState(updateProductWithId, initialState);
+
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.description);
   const [categoryId, setCategoryId] = useState(product.categoryId);
@@ -77,10 +90,6 @@ export default function EditProductForm({
       stock: String(variant.stock),
     })),
   );
-
-  const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState(false);
 
   useEffect(() => {
     setName(product.name);
@@ -115,8 +124,7 @@ export default function EditProductForm({
 
   function removeVariant(index: number) {
     if (variants.length === 1) {
-      setMessage("A product must have at least one variant.");
-      setError(true);
+      alert("A product must have at least one variant.");
       return;
     }
 
@@ -125,55 +133,11 @@ export default function EditProductForm({
     );
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    setPending(true);
-    setMessage("");
-    setError(false);
-
-    try {
-      const response = await fetch(`/api/admin/products/${product.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          categoryId,
-          subCategoryId: subCategoryId || null,
-          isActive,
-          isFeatured,
-          variants: variants.map((variant) => ({
-            id: variant.id,
-            size: variant.size,
-            colour: variant.colour,
-            price: Number(variant.price),
-            stock: Number(variant.stock),
-          })),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(true);
-        setMessage(data.message ?? "Unable to update the product.");
-        return;
-      }
-
-      setMessage("Product updated successfully.");
-    } catch {
-      setError(true);
-      setMessage("Unable to connect to the server.");
-    } finally {
-      setPending(false);
-    }
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form action={formAction} className="space-y-8">
+      <input type="hidden" name="isActive" value={String(isActive)} />
+      <input type="hidden" name="isFeatured" value={String(isFeatured)} />
+      <input type="hidden" name="variants" value={JSON.stringify(variants)} />
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -195,6 +159,7 @@ export default function EditProductForm({
 
             <input
               id="name"
+              name="name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
@@ -213,6 +178,7 @@ export default function EditProductForm({
 
             <select
               id="category"
+              name="categoryId"
               value={categoryId}
               onChange={(event) => {
                 setCategoryId(event.target.value);
@@ -243,6 +209,7 @@ export default function EditProductForm({
 
               <select
                 id="subCategory"
+                name="subCategoryId"
                 value={subCategoryId}
                 onChange={(event) => setSubCategoryId(event.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
@@ -267,6 +234,7 @@ export default function EditProductForm({
 
             <textarea
               id="description"
+              name="description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               required
@@ -419,26 +387,22 @@ export default function EditProductForm({
         </div>
       </section>
 
-      {message && (
+      {state.message && (
         <div
           className={`rounded-lg border px-4 py-3 text-sm ${
-            error
+            !state.success
               ? "border-red-200 bg-red-50 text-red-700"
               : "border-green-200 bg-green-50 text-green-700"
           }`}
         >
-          {message}
+          {state.message}
         </div>
       )}
 
       <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {pending ? "Saving changes..." : "Save changes"}
-        </button>
+        <SubmitButton pendingText="Saving changes...">
+          Save changes
+        </SubmitButton>
       </div>
     </form>
   );

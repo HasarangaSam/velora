@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import AuthSessionProvider from "@/components/auth/SessionProvider";
 import CartSync from "@/components/shop/CartSync";
@@ -28,7 +29,9 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen flex flex-col bg-white text-slate-900`}>
         <AuthSessionProvider>
           <CartSync />
-          <Navbar />
+          <Suspense fallback={<div aria-hidden="true" className="h-16 border-b border-slate-200 bg-white md:h-20" />}>
+            <Navbar />
+          </Suspense>
           <div className="flex-1">{children}</div>
           <Footer />
         </AuthSessionProvider>

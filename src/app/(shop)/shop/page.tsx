@@ -48,45 +48,46 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     }),
   ]);
 
+  const selectedCategory = getValue(params.category);
+  const selectedCategoryName = categories
+    .flatMap((category) => [category, ...(category.children ?? [])])
+    .find((category) => category.slug === selectedCategory)?.name;
+
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <p className="text-sm font-semibold text-blue-600">
-            Velora collection
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold text-slate-900 sm:text-4xl">
-            Shop
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
+        <div className="mb-8 border-b border-stone-200 pb-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Velora / Clothing</p>
+          <h1 className="mt-3 text-3xl font-medium tracking-tight text-stone-950 sm:text-4xl">
+            {selectedCategoryName ? `${selectedCategoryName} collection` : "The everyday collection"}
           </h1>
-
-          <p className="mt-2 max-w-2xl text-slate-500">
-            Explore our latest clothing collection and find styles for everyday
-            wear.
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
+            {selectedCategoryName ? `Explore the latest ${selectedCategoryName.toLowerCase()} styles.` : "Considered essentials for the way you live, made for comfort and everyday wear."}
           </p>
         </div>
 
         <ProductFilters categories={categories} />
 
-        <div className="mt-8 flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            {catalog.pagination.total} products
+        <div className="mt-8 flex items-center justify-between border-b border-stone-200 pb-3">
+          <p className="text-sm text-stone-600">
+            {catalog.pagination.total} {selectedCategoryName ? `${selectedCategoryName.toLowerCase()} ` : ""}items
           </p>
+          <p className="text-xs text-stone-500">Prices shown in LKR</p>
         </div>
 
         {catalog.products.length === 0 ? (
-          <div className="mt-8 rounded-xl border border-slate-200 bg-white px-6 py-16 text-center">
-            <h2 className="text-lg font-semibold text-slate-900">
+          <div className="mt-8 rounded-xl border border-stone-200 bg-white px-6 py-16 text-center">
+            <h2 className="text-lg font-medium text-stone-900">
               No products found
             </h2>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Try changing your search or filter options.
+            <p className="mt-2 text-sm text-stone-500">
+              {selectedCategoryName ? `There are no ${selectedCategoryName.toLowerCase()} items matching these filters.` : "Try changing your search or filter options."}
             </p>
           </div>
         ) : (
           <>
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4">
               {catalog.products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

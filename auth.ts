@@ -46,6 +46,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        // Block sign-in for unverified accounts
+        if (!user.emailVerified) {
+          return null;
+        }
+
         const passwordMatches = await bcrypt.compare(
           credentials.password,
           user.password,

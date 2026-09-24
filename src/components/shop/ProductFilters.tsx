@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
@@ -54,14 +54,19 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
     });
   }
 
+  const activeCollection = categories.find((item) =>
+    item.slug === category || item.children?.some((child) => child.slug === category),
+  );
+  const visibleCategories = activeCollection ? [activeCollection] : categories;
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+    <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+      <div className="flex items-center gap-2 text-sm font-medium text-stone-900">
         <SlidersHorizontal className="h-4 w-4" />
-        Filters
+        Refine your selection
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
         <form onSubmit={handleSearch}>
           <label
             htmlFor="search"
@@ -78,7 +83,7 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search products..."
-              className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
             />
           </div>
         </form>
@@ -99,11 +104,11 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
                 category: event.target.value,
               })
             }
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           >
-            <option value="">All categories</option>
+            {!activeCollection && <option value="">All categories</option>}
 
-            {categories.map((item) =>
+            {visibleCategories.map((item) =>
               item.children && item.children.length > 0 ? (
                 <optgroup key={item.slug} label={item.name}>
                   <option value={item.slug}>All {item.name}</option>
@@ -141,7 +146,7 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
               })
             }
             placeholder="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           />
         </div>
 
@@ -164,7 +169,7 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
               })
             }
             placeholder="100000"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           />
         </div>
 
@@ -184,7 +189,7 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
                 sort: event.target.value,
               })
             }
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           >
             <option value="newest">Newest</option>
             <option value="name">Name</option>
@@ -193,6 +198,12 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
           </select>
         </div>
       </div>
+      {(category || minPrice || maxPrice || searchParams.get("search")) && (
+        <button type="button" onClick={() => { setSearch(""); updateFilters({ category: "", minPrice: "", maxPrice: "", search: "" }); }}
+          className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-stone-600 hover:text-stone-950">
+          <X className="h-3.5 w-3.5" /> Clear filters
+        </button>
+      )}
     </div>
   );
 }

@@ -39,3 +39,25 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
     return { success: false, message: "Failed to update order status." };
   }
 }
+
+export type OrderActionState = {
+  success: boolean;
+  message: string;
+  currentStatus?: string;
+};
+
+export async function updateOrderStatusAction(
+  orderId: string,
+  prevState: OrderActionState,
+  formData: FormData,
+): Promise<OrderActionState> {
+  const newStatus = formData.get("status") as string;
+  if (!newStatus) {
+    return { success: false, message: "Status is required.", currentStatus: prevState.currentStatus };
+  }
+  const res = await updateOrderStatus(orderId, newStatus);
+  return {
+    ...res,
+    currentStatus: res.success ? newStatus : prevState.currentStatus,
+  };
+}
