@@ -78,6 +78,27 @@ Product categories are hierarchical: a category may have child categories, while
 
 ## Local setup
 
+## CI and Docker
+
+GitHub Actions runs ESLint, the Vitest unit tests, and a production build on every push and pull request. The workflow uses placeholder database and authentication values only for the build; it does not connect to a real database or deploy the app.
+
+The Dockerfile uses separate dependency, build, and runtime stages. Next.js standalone output keeps the production image smaller by copying only the app runtime files. Build an image with:
+
+```bash
+docker build -t velora .
+```
+
+Run it with the required runtime configuration (use your own values):
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/velora" \
+  -e AUTH_SECRET="your-long-random-secret" \
+  velora
+```
+
+The container expects PostgreSQL and any optional services such as Redis to be reachable at the URLs supplied through environment variables. Apply Prisma migrations to the database before using the app. Do not put production secrets in the image or commit them to the repository.
+
 ### Requirements
 
 - Node.js and npm
