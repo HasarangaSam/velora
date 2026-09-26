@@ -4,11 +4,52 @@ import UserRoleToggle from "@/components/admin/UserRoleToggle";
 import Link from "next/link";
 import { ArrowUpRight, Plus, Users } from "lucide-react";
 
-export default async function AdminUsersPage() {
+type AdminUsersPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+const PAGE_SIZE = 10;
+
+export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
   const currentAdmin = await requireAdmin();
 
+  const params = await searchParams;
+  const getValue = (value: string | string[] | undefined) =>
+    Array.isArray(value) ? value[0] : value;
+  const search = (getValue(params.search) ?? "").trim().slice(0, 100);
+  const requestedRole = getValue(params.role);
+  const role = requestedRole === "USER" || requestedRole === "ADMIN"
+    ? requestedRole
+    : "ALL";
+  const requestedPage = Number.parseInt(getValue(params.page) ?? "1", 10);
+  const safeRequestedPage = Number.isFinite(requestedPage) && requestedPage > 0
+    ? requestedPage
+    : 1;
+
+  const where = {
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+    ...(role !== "ALL" ? { role } : {}),
+  };
+
+  const [totalUsers, customerCount, adminCount] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.count({ where: { role: "USER" } }),
+    prisma.user.count({ where: { role: "ADMIN" } }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
+  const page = Math.min(safeRequestedPage, totalPages);
   const users = await prisma.user.findMany({
+    where,
     orderBy: { createdAt: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
     select: {
       id: true,
       name: true,
@@ -19,6 +60,15 @@ export default async function AdminUsersPage() {
       _count: { select: { orders: true } },
     },
   });
+
+  function pageHref(targetPage: number) {
+    const nextParams = new URLSearchParams();
+    if (search) nextParams.set("search", search);
+    if (role !== "ALL") nextParams.set("role", role);
+    if (targetPage > 1) nextParams.set("page", String(targetPage));
+    const query = nextParams.toString();
+    return `/admin/users${query ? `?${query}` : ""}`;
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -38,16 +88,35 @@ export default async function AdminUsersPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Total accounts</p><p className="mt-1 text-2xl font-semibold text-slate-950">{users.length}</p></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Customers</p><p className="mt-1 text-2xl font-semibold text-slate-950">{users.filter((user) => user.role === "USER").length}</p></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Administrators</p><p className="mt-1 text-2xl font-semibold text-slate-950">{users.filter((user) => user.role === "ADMIN").length}</p></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Matching accounts</p><p className="mt-1 text-2xl font-semibold text-slate-950">{totalUsers}</p></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Customers · all accounts</p><p className="mt-1 text-2xl font-semibold text-slate-950">{customerCount}</p></div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Administrators · all accounts</p><p className="mt-1 text-2xl font-semibold text-slate-950">{adminCount}</p></div>
       </div>
+
+      <form action="/admin/users" method="get" className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(220px,1fr)_220px_auto] sm:items-end">
+        <div>
+          <label htmlFor="search" className="mb-1.5 block text-xs font-medium text-slate-600">Search customers by name or email</label>
+          <input id="search" name="search" type="search" defaultValue={search} placeholder="Name or email address" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+        </div>
+        <div>
+          <label htmlFor="role" className="mb-1.5 block text-xs font-medium text-slate-600">Role</label>
+          <select id="role" name="role" defaultValue={role} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+            <option value="ALL">All roles</option>
+            <option value="USER">Customers</option>
+            <option value="ADMIN">Administrators</option>
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
+          <Link href="/admin/users" className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear</Link>
+        </div>
+      </form>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {users.length === 0 ? (
           <div className="p-12 text-center text-slate-500 text-sm">
             <Users className="mx-auto text-slate-300 mb-3" size={36} />
-            <p className="font-semibold text-slate-700">No users found</p>
+            <p className="font-semibold text-slate-700">{search || role !== "ALL" ? "No matching users" : "No users found"}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -118,6 +187,17 @@ export default async function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      {totalUsers > 0 && (
+        <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <p>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalUsers)} of {totalUsers} accounts</p>
+          <nav aria-label="User list pagination" className="flex items-center gap-2">
+            {page > 1 ? <Link href={pageHref(page - 1)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 hover:bg-slate-50">Previous</Link> : <span aria-disabled="true" className="rounded-lg border border-slate-200 px-3 py-2 text-slate-400">Previous</span>}
+            <span className="px-2">Page {page} of {totalPages}</span>
+            {page < totalPages ? <Link href={pageHref(page + 1)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 hover:bg-slate-50">Next</Link> : <span aria-disabled="true" className="rounded-lg border border-slate-200 px-3 py-2 text-slate-400">Next</span>}
+          </nav>
+        </div>
+      )}
     </div>
   );
 }

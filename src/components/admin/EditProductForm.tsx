@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PRODUCT_COLOURS, PRODUCT_SIZES } from "@/lib/catalog";
+import { getCategoryDisplayName } from "@/lib/category-display";
 import SubmitButton from "./SubmitButton";
 import {
   updateProduct,
@@ -66,8 +68,16 @@ export default function EditProductForm({
   product,
   categories,
 }: EditProductFormProps) {
+  const router = useRouter();
   const updateProductWithId = updateProduct.bind(null, product.id);
   const [state, formAction] = useActionState(updateProductWithId, initialState);
+
+  useEffect(() => {
+    if (state.success) {
+      router.push("/admin/products");
+      router.refresh();
+    }
+  }, [router, state.success]);
 
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.description);
@@ -198,7 +208,7 @@ export default function EditProductForm({
                 <option value="">— No sub-category —</option>
                 {subCategories.map((sub) => (
                   <option key={sub.id} value={sub.id}>
-                    {sub.name}
+                    {getCategoryDisplayName(sub)}
                   </option>
                 ))}
               </select>

@@ -4,7 +4,13 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
 import ProductRowActions from "@/components/admin/ProductRowActions";
 
-export default async function AdminProductsPage() {
+type AdminProductsPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+const PAGE_SIZE = 10;
+
+export default async function AdminProductsPage({ searchParams }: AdminProductsPageProps) {
   let user;
 
   try {
@@ -17,21 +23,60 @@ export default async function AdminProductsPage() {
     redirect("/account");
   }
 
+  const params = await searchParams;
+  const getValue = (value: string | string[] | undefined) =>
+    Array.isArray(value) ? value[0] : value;
+  const search = (getValue(params.search) ?? "").trim().slice(0, 100);
+  const requestedStatus = getValue(params.status);
+  const status = requestedStatus === "active" || requestedStatus === "inactive"
+    ? requestedStatus
+    : "all";
+  const categorySlug = getValue(params.category) ?? "";
+  const requestedPage = Number.parseInt(getValue(params.page) ?? "1", 10);
+  const safeRequestedPage = Number.isFinite(requestedPage) && requestedPage > 0
+    ? requestedPage
+    : 1;
+
+  const where = {
+    ...(search ? { name: { contains: search, mode: "insensitive" as const } } : {}),
+    ...(status !== "all" ? { isActive: status === "active" } : {}),
+    ...(categorySlug ? { category: { slug: categorySlug } } : {}),
+  };
+
+  const [totalProducts, categories] = await Promise.all([
+    prisma.product.count({ where }),
+    prisma.category.findMany({
+      where: { parentId: null },
+      select: { name: true, slug: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
+  const page = Math.min(safeRequestedPage, totalPages);
   const products = await prisma.product.findMany({
+    where,
     include: {
       category: true,
       variants: true,
       images: {
-        where: {
-          isPrimary: true,
-        },
+        where: { isPrimary: true },
         take: 1,
       },
     },
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
+
+  function pageHref(targetPage: number) {
+    const nextParams = new URLSearchParams();
+    if (search) nextParams.set("search", search);
+    if (status !== "all") nextParams.set("status", status);
+    if (categorySlug) nextParams.set("category", categorySlug);
+    if (targetPage > 1) nextParams.set("page", String(targetPage));
+    const query = nextParams.toString();
+    return `/admin/products${query ? `?${query}` : ""}`;
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10">
@@ -55,15 +100,50 @@ export default async function AdminProductsPage() {
           </Link>
         </div>
 
+        <form action="/admin/products" method="get" className="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-[minmax(220px,1fr)_minmax(160px,220px)_minmax(160px,220px)_auto] sm:items-end">
+          <div>
+            <label htmlFor="search" className="mb-1.5 block text-xs font-medium text-slate-600">Search by name</label>
+            <input
+              id="search"
+              name="search"
+              type="search"
+              defaultValue={search}
+              placeholder="Product name"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          <div>
+            <label htmlFor="category" className="mb-1.5 block text-xs font-medium text-slate-600">Category</label>
+            <select id="category" name="category" defaultValue={categorySlug} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+              <option value="">All categories</option>
+              {categories.map((category) => <option key={category.slug} value={category.slug}>{category.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="status" className="mb-1.5 block text-xs font-medium text-slate-600">Status</label>
+            <select id="status" name="status" defaultValue={status} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
+            <Link href="/admin/products" className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear</Link>
+          </div>
+        </form>
+
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {products.length === 0 ? (
             <div className="p-10 text-center">
               <h2 className="text-lg font-semibold text-slate-900">
-                No products yet
+                {totalProducts === 0 && !search && status === "all" && !categorySlug ? "No products yet" : "No matching products"}
               </h2>
 
               <p className="mt-2 text-sm text-slate-500">
-                Add your first product to start building the catalog.
+                {totalProducts === 0 && !search && status === "all" && !categorySlug
+                  ? "Add your first product to start building the catalog."
+                  : "Try changing your search or filters."}
               </p>
             </div>
           ) : (
@@ -167,6 +247,25 @@ export default async function AdminProductsPage() {
             </div>
           )}
         </div>
+
+        {totalProducts > 0 && (
+          <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+            <p>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalProducts)} of {totalProducts} products</p>
+            <nav aria-label="Product list pagination" className="flex items-center gap-2">
+              {page > 1 ? (
+                <Link href={pageHref(page - 1)} className="rounded-lg border border-slate-300 px-3 py-2 hover:bg-white">Previous</Link>
+              ) : (
+                <span aria-disabled="true" className="rounded-lg border border-slate-200 px-3 py-2 text-slate-400">Previous</span>
+              )}
+              <span className="px-2">Page {page} of {totalPages}</span>
+              {page < totalPages ? (
+                <Link href={pageHref(page + 1)} className="rounded-lg border border-slate-300 px-3 py-2 hover:bg-white">Next</Link>
+              ) : (
+                <span aria-disabled="true" className="rounded-lg border border-slate-200 px-3 py-2 text-slate-400">Next</span>
+              )}
+            </nav>
+          </div>
+        )}
       </div>
     </main>
   );

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import cloudinary from "@/lib/cloudinary";
+import { invalidateCachePattern } from "@/lib/redis";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "nodejs";
 
@@ -99,6 +101,9 @@ export async function POST(request: Request, context: RouteContext) {
         isPrimary: existingImageCount === 0,
       },
     });
+
+    await invalidateCachePattern("velora:featured_products:v3");
+    revalidatePath("/");
 
     return NextResponse.json(
       {

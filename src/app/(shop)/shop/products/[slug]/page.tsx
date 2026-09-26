@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import ProductReviews from "@/components/shop/ProductReviews";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getCategoryDisplayName } from "@/lib/category-display";
 
 type ProductPageProps = {
   params: Promise<{
@@ -95,7 +96,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 href={`/shop?category=${product.subCategory.slug}`}
                 className="transition hover:text-stone-950"
               >
-                {product.subCategory.name}
+                {getCategoryDisplayName(product.subCategory)}
               </Link>
             </>
           )}
@@ -128,7 +129,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <>
                   <span className="text-xs text-slate-300">•</span>
                   <span className="text-sm font-medium text-slate-500">
-                    {product.subCategory.name}
+                    {getCategoryDisplayName(product.subCategory)}
                   </span>
                 </>
               )}

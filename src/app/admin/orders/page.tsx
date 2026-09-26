@@ -4,38 +4,52 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { OrderStatus } from "@/generated/prisma/enums";
 
 type OrdersPageProps = {
-  searchParams: Promise<{
-    status?: string;
-    search?: string;
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+const PAGE_SIZE = 10;
 
 export default async function AdminOrdersPage({
   searchParams,
 }: OrdersPageProps) {
   await requireAdmin();
 
-  const { status, search } = await searchParams;
+  const params = await searchParams;
+  const getValue = (value: string | string[] | undefined) =>
+    Array.isArray(value) ? value[0] : value;
+  const requestedStatus = getValue(params.status);
+  const search = (getValue(params.search) ?? "").trim().slice(0, 100);
+  const requestedPage = Number.parseInt(getValue(params.page) ?? "1", 10);
+  const safeRequestedPage = Number.isFinite(requestedPage) && requestedPage > 0
+    ? requestedPage
+    : 1;
 
   const validStatus =
-    status && Object.values(OrderStatus).includes(status as OrderStatus)
-      ? (status as OrderStatus)
+    requestedStatus && Object.values(OrderStatus).includes(requestedStatus as OrderStatus)
+      ? (requestedStatus as OrderStatus)
       : undefined;
 
+  const where = {
+    ...(validStatus ? { status: validStatus } : {}),
+    ...(search
+      ? {
+          OR: [
+            { orderNumber: { contains: search, mode: "insensitive" as const } },
+            { shippingFullName: { contains: search, mode: "insensitive" as const } },
+            { user: { email: { contains: search, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+  };
+
+  const totalOrders = await prisma.order.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
+  const page = Math.min(safeRequestedPage, totalPages);
   const orders = await prisma.order.findMany({
-    where: {
-      ...(validStatus ? { status: validStatus } : {}),
-      ...(search
-        ? {
-            OR: [
-              { orderNumber: { contains: search, mode: "insensitive" } },
-              { shippingFullName: { contains: search, mode: "insensitive" } },
-              { user: { email: { contains: search, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-    },
+    where,
     orderBy: { createdAt: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
     include: {
       user: {
         select: { name: true, email: true },
@@ -44,6 +58,15 @@ export default async function AdminOrdersPage({
       payment: true,
     },
   });
+
+  function pageHref(targetPage: number) {
+    const nextParams = new URLSearchParams();
+    if (validStatus) nextParams.set("status", validStatus);
+    if (search) nextParams.set("search", search);
+    if (targetPage > 1) nextParams.set("page", String(targetPage));
+    const query = nextParams.toString();
+    return `/admin/orders${query ? `?${query}` : ""}`;
+  }
 
   const statuses = ["ALL", "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
 
@@ -64,10 +87,12 @@ export default async function AdminOrdersPage({
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
         {statuses.map((s) => {
-          const isActive =
-            (s === "ALL" && !status) || status === s;
-          const href =
-            s === "ALL" ? "/admin/orders" : `/admin/orders?status=${s}`;
+          const isActive = (s === "ALL" && !validStatus) || validStatus === s;
+          const tabParams = new URLSearchParams();
+          if (s !== "ALL") tabParams.set("status", s);
+          if (search) tabParams.set("search", search);
+          const tabQuery = tabParams.toString();
+          const href = `/admin/orders${tabQuery ? `?${tabQuery}` : ""}`;
           return (
             <Link
               key={s}
@@ -83,6 +108,18 @@ export default async function AdminOrdersPage({
           );
         })}
       </div>
+
+      <form action="/admin/orders" method="get" className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
+        {validStatus && <input type="hidden" name="status" value={validStatus} />}
+        <div className="flex-1">
+          <label htmlFor="search" className="mb-1.5 block text-xs font-medium text-slate-600">Search orders by number or customer</label>
+          <input id="search" name="search" type="search" defaultValue={search} placeholder="Order number, customer name, or email" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700">Search</button>
+          <Link href={validStatus ? `/admin/orders?status=${validStatus}` : "/admin/orders"} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear</Link>
+        </div>
+      </form>
 
       {/* Orders List */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -182,6 +219,17 @@ export default async function AdminOrdersPage({
           </div>
         )}
       </div>
+
+      {totalOrders > 0 && (
+        <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <p>Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalOrders)} of {totalOrders} orders</p>
+          <nav aria-label="Order list pagination" className="flex items-center gap-2">
+            {page > 1 ? <Link href={pageHref(page - 1)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 hover:bg-slate-50">Previous</Link> : <span aria-disabled="true" className="rounded-lg border border-slate-200 px-3 py-2 text-slate-400">Previous</span>}
+            <span className="px-2">Page {page} of {totalPages}</span>
+            {page < totalPages ? <Link href={pageHref(page + 1)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 hover:bg-slate-50">Next</Link> : <span aria-disabled="true" className="rounded-lg border border-slate-200 px-3 py-2 text-slate-400">Next</span>}
+          </nav>
+        </div>
+      )}
     </div>
   );
 }

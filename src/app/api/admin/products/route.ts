@@ -130,6 +130,7 @@ export async function POST(request: Request) {
       if (keys.length > 0) {
         await redis.del(...keys);
       }
+      await redis.del("velora:featured_products:v3");
     } catch (redisError) {
       console.error("Redis cache invalidation error:", redisError);
     }

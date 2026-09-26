@@ -8,6 +8,9 @@ The project is designed to demonstrate end-to-end product engineering: relationa
 
 ### Shopping experience
 
+- The homepage includes an automatically rotating three-image hero using `public/1.png`, `public/2.png`, and `public/3.png`, plus a welcome coupon offer and collection/product highlights. The Men, Women, and Kids collection cards use database images from their matching subcategories (`men-shirts`, `women-dresses`/Frocks, and `kids-t-shirts`); the occasion feature uses an image from `women-sarees`. Each section prefers the product's primary image and falls back to its first gallery image.
+- The homepage's featured-products section shows active products marked **Featured** in the admin product form and uses their primary database images.
+- A fixed WhatsApp contact button opens a chat with the configured Velora support number. Footer Facebook, Instagram, and TikTok buttons are disabled placeholders until official profile links are available.
 - Browse active products by category and subcategory, search by product name or description, filter by price, and sort by name, newest, or price.
 - View product galleries, available sizes and colours, per-variant prices and stock, ratings, and approved reviews. Reviews can be submitted by customers with a paid order for the product and require admin approval before public display.
 - Add products to a browser-persisted guest cart. After sign-in, the cart can be synchronized with the user's database cart; signed-in cart operations check current product availability and inventory.
@@ -28,8 +31,11 @@ The project is designed to demonstrate end-to-end product engineering: relationa
 The `/admin` area is restricted to users with the `ADMIN` role. It includes a dashboard and workflows to:
 
 - Create, edit, activate, feature, and delete products and their size/colour variants.
+- Search products by name, filter the list by main category and active status, and browse results 10 products per page.
+- Search user accounts by name or email, filter by customer or administrator role, and browse 10 accounts per page.
+- Search orders by order number or customer name/email, filter by order status, and browse 10 orders per page.
 - Organize products with parent categories and subcategories.
-- Upload, reorder, set the primary image for, and remove product images using Cloudinary.
+- Upload, reorder, set the primary image for, and remove product images using Cloudinary. New products require at least one image, and an existing product must retain at least one image. Saving an edit returns to the product list.
 - Review and moderate product reviews.
 - Manage orders and order status, coupons, customer accounts, and user roles.
 - Receive in-app notifications about new orders and submitted reviews.
@@ -67,7 +73,7 @@ The `/admin` area is restricted to users with the `ADMIN` role. It includes a da
 - **Checkout correctness:** Prices and totals are calculated on the server. Order creation uses an idempotency key and request fingerprint to make retries safe. Orders retain shipping and line-item snapshots so later catalog or address edits do not rewrite historical order details.
 - **Payment verification:** The PayHere notification handler verifies the provider signature and checks the merchant, order, currency, and amount before applying payment changes. Payment confirmation, coupon usage, and inventory updates use database transactions with serializable isolation and conflict handling.
 - **Authorization and account safety:** Shared `requireUser` and `requireAdmin` helpers protect user and admin operations. Passwords are hashed with bcrypt; verification codes and reset requests are time-limited; password changes increment a session version so older sessions are rejected.
-- **Cache and throttling:** Redis backs catalog caching and rate-limit counters. Cache reads and rate-limit checks are designed to fail open when Redis is unavailable, keeping the storefront available while reducing the protection those features can provide during an outage.
+- **Cache and throttling:** Redis backs catalog and homepage featured-product caching, plus rate-limit counters. Product and image changes invalidate the homepage product cache. Cache reads and rate-limit checks are designed to fail open when Redis is unavailable, keeping the storefront available while reducing the protection those features can provide during an outage.
 - **Build and delivery:** The build command generates the Prisma client before compiling Next.js. Next.js standalone output is used by a multi-stage Docker image. GitHub Actions runs lint, unit tests, and a production build on pushes and pull requests.
 
 ## Technology
@@ -189,7 +195,7 @@ npx prisma generate
 npm run seed
 ```
 
-The seed script inserts sample categories, products, a customer address, users, and coupons. It contains hard-coded development passwords and should only be run against an isolated local database. Seeded users are not automatically email-verified by the seed, so use the normal registration and verification flow when demonstrating sign-in. Do not use seed credentials or seed data in a shared or production environment.
+The seed script first clears existing records, then inserts sample categories, products, a customer address, users, and coupons. It refuses to run unless `DATABASE_URL` points to a localhost database named `velora`; running it replaces the contents of that local database. It contains hard-coded development passwords and seeded users are not automatically email-verified, so use the normal registration and verification flow when demonstrating sign-in. Do not use seed credentials or seed data in a shared or production environment.
 
 ### 4. Start the development server
 
@@ -230,7 +236,7 @@ Provider-backed flows need working credentials and callback URLs. The storefront
 | `npm run build` | Generate the Prisma client, then create the optimized Next.js production build. |
 | `npm run start` | Serve a previously built production app. |
 | `npx prisma migrate deploy` | Apply committed migrations to the configured database. |
-| `npm run seed` | Add or update local demo records. |
+| `npm run seed` | Reset the localhost `velora` database and insert demo records. |
 
 ## Tests
 
@@ -258,6 +264,20 @@ The workflow does not deploy the application or start PostgreSQL, Redis, SMTP, o
 ## Docker
 
 The `Dockerfile` has dependency, builder, and runtime stages. The runtime stage uses Next.js standalone output and starts the generated `server.js`. The build stage uses placeholder environment values to build without embedding real credentials. Runtime secrets and service URLs must be supplied to the running container.
+
+## Deploy to Vercel
+
+The repository includes [`vercel.json`](vercel.json) to identify the project as a Next.js application. Vercel detects the framework and uses the `build` script in `package.json`, which generates Prisma Client before running `next build`. The Next.js configuration uses Vercel's platform output on Vercel and keeps standalone output for the Docker image.
+
+1. Import this Git repository into Vercel and keep the project root as the Root Directory.
+2. Add the environment variables required by the features you plan to use. At minimum, configure `DATABASE_URL`, `AUTH_SECRET`, and `NEXT_PUBLIC_APP_URL` for Production. Set the same variables for Preview only if previews should connect to a database; use an isolated preview database where possible.
+3. Before the first deployment, apply the committed Prisma migrations to the production database with `npx prisma migrate deploy` from a trusted environment using the production `DATABASE_URL`. Repeat this when deploying schema changes. The Vercel build does not automatically run migrations or seed data.
+4. Deploy. In Vercel project settings, choose a Function Region close to the PostgreSQL database to reduce database request latency.
+5. If using PayHere, set `PAYHERE_NOTIFY_URL` to the deployed origin plus `/api/payments/payhere/notify`, and configure the same public origin in `NEXT_PUBLIC_APP_URL`.
+
+Redis, SMTP, Google OAuth, Cloudinary, and PayHere credentials are optional for deployments that do not use those features. Redis is not provisioned by Vercel for this app; configure a managed Redis endpoint with `REDIS_URL` if you want shared caching and rate-limit counters across serverless instances. When Redis is unavailable, those features fall back as described above.
+
+Vercel's Next.js framework detection and build defaults are documented in its [build configuration](https://vercel.com/docs/builds/configure-a-build). Function regions can be selected in [project settings](https://vercel.com/docs/functions/configuring-functions/region); keep the app close to its database when choosing one.
 
 Build the image:
 

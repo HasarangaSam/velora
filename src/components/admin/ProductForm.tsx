@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, X } from "lucide-react";
 import { PRODUCT_COLOURS, PRODUCT_SIZES } from "@/lib/catalog";
+import { getCategoryDisplayName } from "@/lib/category-display";
 import {
   createProduct,
   type ProductActionState,
@@ -96,7 +97,25 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
   }
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        if (images.length === 0) {
+          event.preventDefault();
+          setImageError("Select at least one product image before creating the product.");
+          return;
+        }
+
+        const invalidImage = images.find(
+          ({ file }) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024,
+        );
+        if (invalidImage) {
+          event.preventDefault();
+          setImageError(`${invalidImage.file.name} must be an image up to 5 MB.`);
+        }
+      }}
+      className="space-y-8"
+    >
       <input type="hidden" name="isActive" value={String(isActive)} />
       <input type="hidden" name="isFeatured" value={String(isFeatured)} />
       <input
@@ -165,7 +184,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           >
             <option value="">— No sub-category —</option>
             {subCategories.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{getCategoryDisplayName(s)}</option>
             ))}
           </select>
         </div>
@@ -328,6 +347,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
               }));
               imagePreviewUrls.current = selected.map((image) => image.previewUrl);
               setImages(selected);
+              setImageError("");
             }}
             className="sr-only" />
         </label>

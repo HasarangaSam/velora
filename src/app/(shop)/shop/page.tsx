@@ -4,6 +4,7 @@ import ProductPagination from "@/components/shop/ProductPagination";
 import { getCatalogProducts } from "@/lib/catalog-products";
 import { prisma } from "@/lib/db/prisma";
 import { auth } from "@/auth";
+import { getCategoryDisplayName } from "@/lib/category-display";
 
 type ShopPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -58,9 +59,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     : new Set<string>();
 
   const selectedCategory = getValue(params.category);
-  const selectedCategoryName = categories
+  const selectedCategoryRecord = categories
     .flatMap((category) => [category, ...(category.children ?? [])])
-    .find((category) => category.slug === selectedCategory)?.name;
+    .find((category) => category.slug === selectedCategory);
+  const selectedCategoryName = selectedCategoryRecord
+    ? getCategoryDisplayName(selectedCategoryRecord)
+    : undefined;
 
   return (
     <main className="min-h-screen bg-slate-50">

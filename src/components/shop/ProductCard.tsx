@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import WishlistButton from "@/components/shop/WishlistButton";
 import { ArrowUpRight } from "lucide-react";
+import { getCategoryDisplayName } from "@/lib/category-display";
 
 type ProductCardProps = {
   product: {
@@ -12,7 +13,7 @@ type ProductCardProps = {
       name: string;
       slug: string;
     };
-    subCategory?: { name: string } | null;
+    subCategory?: { name: string; slug: string } | null;
     image: string | null;
     priceFrom: string | null;
     totalStock: number;
@@ -62,7 +63,7 @@ export default function ProductCard({ product, isSaved = false }: ProductCardPro
 
         <div className="px-0.5 pt-3.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-            {product.subCategory?.name ?? product.category.name}
+            {product.subCategory ? getCategoryDisplayName(product.subCategory) : getCategoryDisplayName(product.category)}
           </p>
 
           <h2 className="mt-1.5 line-clamp-2 min-h-10 text-sm font-medium leading-5 text-stone-900 transition-colors group-hover:text-stone-600 sm:text-[15px]">

@@ -156,6 +156,7 @@ export async function createProduct(
       if (keys.length > 0) {
         await redis.del(...keys);
       }
+      await redis.del("velora:featured_products:v3");
     } catch (redisErr) {
       console.error("Redis cache invalidation error:", redisErr);
     }
@@ -244,13 +245,20 @@ export async function updateProduct(
 
     const existingProduct = await prisma.product.findUnique({
       where: { id: productId },
-      include: { variants: true },
+      include: { variants: true, _count: { select: { images: true } } },
     });
 
     if (!existingProduct) {
       return {
         ...initialState,
         message: "Product not found.",
+      };
+    }
+
+    if (existingProduct._count.images < 1) {
+      return {
+        ...initialState,
+        message: "Add at least one product image before saving this product.",
       };
     }
 
@@ -374,6 +382,7 @@ export async function updateProduct(
       if (keys.length > 0) {
         await redis.del(...keys);
       }
+      await redis.del("velora:featured_products:v3");
     } catch (redisError) {
       console.error("Redis cache invalidation error:", redisError);
     }
@@ -453,7 +462,7 @@ export async function deleteProduct(productId: string): Promise<{
     try {
       const keys = await redis.keys("velora:products*");
       if (keys.length > 0) await redis.del(...keys);
-      await redis.del("velora:featured_products:v2");
+      await redis.del("velora:featured_products:v3");
     } catch (error) {
       console.error("Redis product cache invalidation error:", error);
     }

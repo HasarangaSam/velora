@@ -4,6 +4,7 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import ProductSearchInput from "@/components/shop/ProductSearchInput";
+import { getCategoryDisplayName } from "@/lib/category-display";
 
 type SubCategory = {
   name: string;
@@ -118,13 +119,13 @@ function ProductFiltersForm({
                   <option value={item.slug}>All {item.name}</option>
                   {item.children.map((sub) => (
                     <option key={sub.slug} value={sub.slug}>
-                      {sub.name}
+                      {getCategoryDisplayName(sub)}
                     </option>
                   ))}
                 </optgroup>
               ) : (
                 <option key={item.slug} value={item.slug}>
-                  {item.name}
+                  {getCategoryDisplayName(item)}
                 </option>
               ),
             )}

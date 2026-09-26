@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -45,7 +46,9 @@ export default function LoginForm() {
       return;
     }
 
-    router.push(callbackUrl);
+    const session = await getSession();
+    const destination = session?.user.role === "ADMIN" ? "/admin" : callbackUrl;
+    router.push(destination);
     router.refresh();
   }
 
@@ -90,9 +93,10 @@ export default function LoginForm() {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={pending}
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-blue-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Continue with Google
+          <FcGoogle size={20} aria-hidden="true" />
+          <span>Continue with Google</span>
         </button>
 
         <div className="my-6 flex items-center gap-4">

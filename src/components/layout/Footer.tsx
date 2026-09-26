@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, CreditCard, PackageCheck, Truck } from "lucide-react";
+import { FaFacebookF, FaInstagram, FaTiktok, FaWhatsapp } from "react-icons/fa6";
 
 export default function Footer() {
   const pathname = usePathname();
@@ -48,6 +49,21 @@ export default function Footer() {
               Considered everyday clothing, made for life in Sri Lanka.
             </p>
             <p className="mt-5 text-xs uppercase tracking-[0.16em] text-stone-500">Colombo, Sri Lanka</p>
+            <div className="mt-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-300">Follow Velora</p>
+              <div className="mt-3 flex gap-2">
+                <button type="button" disabled title="Facebook coming soon" aria-label="Facebook coming soon" className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full border border-white/15 text-stone-400 opacity-80">
+                  <FaFacebookF size={14} aria-hidden="true" />
+                </button>
+                <button type="button" disabled title="Instagram coming soon" aria-label="Instagram coming soon" className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full border border-white/15 text-stone-400 opacity-80">
+                  <FaInstagram size={15} aria-hidden="true" />
+                </button>
+                <button type="button" disabled title="TikTok coming soon" aria-label="TikTok coming soon" className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full border border-white/15 text-stone-400 opacity-80">
+                  <FaTiktok size={14} aria-hidden="true" />
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-stone-500">Social links coming soon</p>
+            </div>
           </div>
 
           <div>
@@ -85,6 +101,16 @@ export default function Footer() {
           <p>Made for everyday living.</p>
         </div>
       </div>
+
+      <a
+        href="https://wa.me/94778929895"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Chat with Velora on WhatsApp"
+        className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:bg-[#1fbd5b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-green-200"
+      >
+        <FaWhatsapp size={28} aria-hidden="true" />
+      </a>
     </footer>
   );
 }

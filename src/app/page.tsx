@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCache, setCache } from "@/lib/redis";
 import ProductCard from "@/components/shop/ProductCard";
+import HeroCarousel from "@/components/home/HeroCarousel";
 import { ArrowRight } from "lucide-react";
 import WelcomeOffer from "@/components/shop/WelcomeOffer";
 
@@ -21,13 +22,14 @@ type HomepageProduct = {
 };
 
 async function getFeaturedProducts(): Promise<HomepageProduct[]> {
-  const cacheKey = "velora:featured_products:v2";
+  const cacheKey = "velora:featured_products:v3";
   const cached = await getCache<HomepageProduct[]>(cacheKey);
   if (cached) return cached;
 
   const products = await prisma.product.findMany({
     where: {
       isActive: true,
+      isFeatured: true,
     },
     take: 8,
     orderBy: [
@@ -65,48 +67,47 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
   return formatted;
 }
 
+async function getCategoryProductImage(categorySlug: string, subCategorySlug: string) {
+  const product = await prisma.product.findFirst({
+    where: {
+      isActive: true,
+      category: { slug: categorySlug },
+      subCategory: { slug: subCategorySlug },
+      images: { some: {} },
+    },
+    orderBy: [
+      { isFeatured: "desc" },
+      { createdAt: "desc" },
+      { slug: "asc" },
+    ],
+    select: {
+      images: {
+        orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+        take: 1,
+        select: { url: true },
+      },
+    },
+  });
+
+  return product?.images[0]?.url ?? null;
+}
+
 export default async function HomePage() {
   // Featured products depend on live database data, so defer this query until
   // a request instead of trying to execute it during a production build.
   await connection();
-  const featuredProducts = await getFeaturedProducts();
+  const [featuredProducts, menImage, womenImage, kidsImage, sareeImage] = await Promise.all([
+    getFeaturedProducts(),
+    getCategoryProductImage("men", "men-shirts"),
+    getCategoryProductImage("women", "women-dresses"),
+    getCategoryProductImage("kids", "kids-t-shirts"),
+    getCategoryProductImage("women", "women-sarees"),
+  ]);
 
   return (
     <main className="bg-white">
-      {/* Editorial hero */}
-      <section className="bg-[#f2ede5]">
-        <div className="mx-auto grid max-w-[90rem] items-center gap-8 px-4 py-6 sm:px-6 sm:py-10 lg:grid-cols-[0.82fr_1.18fr] lg:gap-14 lg:px-10 lg:py-12">
-          <div className="order-2 py-3 lg:order-1 lg:py-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-600">The Velora edit</p>
-            <h1 className="mt-5 max-w-xl text-4xl font-medium leading-[1.04] tracking-tight text-stone-950 sm:text-5xl lg:text-6xl">
-              Find your style.<br />Wear it your way.
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-stone-600 sm:text-lg">
-              Thoughtfully chosen clothing for everyday plans, special occasions, and everything in between.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/shop" className="inline-flex items-center gap-3 rounded-full bg-stone-950 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-stone-700">
-                Shop all clothing <ArrowRight size={16} />
-              </Link>
-              <Link href="/shop?sort=newest" className="inline-flex items-center rounded-full border border-stone-400 px-6 py-3.5 text-sm font-medium text-stone-800 transition hover:border-stone-800 hover:bg-white/40">
-                Explore new arrivals
-              </Link>
-            </div>
-            <p className="mt-7 text-[11px] text-stone-500">Photography by <a href="https://unsplash.com/photos/woman-wearing-sunglasses-mVGW8j9rrC4" target="_blank" rel="noreferrer" className="underline underline-offset-2">Napat Saeng / Unsplash</a></p>
-          </div>
-          <div className="relative order-1 min-h-[360px] overflow-hidden rounded-[1.5rem] bg-stone-300 sm:min-h-[520px] lg:order-2 lg:min-h-[660px]">
-            <Image
-              src="https://images.unsplash.com/photo-1562572159-4efc207f5aff?auto=format&fit=crop&w=1800&q=85"
-              alt="Fashion model wearing sunglasses"
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 60vw"
-              className="object-cover object-[center_42%]"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 rounded-full bg-white/90 px-4 py-2 text-xs font-medium text-stone-800 backdrop-blur sm:bottom-6 sm:left-6">New season, new favourites</div>
-          </div>
-        </div>
+      <section aria-label="Featured images">
+        <HeroCarousel />
       </section>
 
       <WelcomeOffer />
@@ -147,8 +148,7 @@ export default async function HomePage() {
             <div
               className="absolute inset-0 bg-cover bg-center opacity-75 transition-transform duration-700 ease-out group-hover:scale-105"
               style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=800&q=80')",
+                ...(menImage ? { backgroundImage: `url("${menImage}")` } : {}),
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -174,8 +174,7 @@ export default async function HomePage() {
             <div
               className="absolute inset-0 bg-cover bg-center opacity-75 transition-transform duration-700 ease-out group-hover:scale-105"
               style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80')",
+                ...(womenImage ? { backgroundImage: `url("${womenImage}")` } : {}),
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -185,7 +184,7 @@ export default async function HomePage() {
               </span>
               <h3 className="mt-2 text-3xl font-medium tracking-tight">Women&apos;s collection</h3>
               <p className="mt-2 max-w-xs text-sm leading-6 text-stone-200">
-                Contemporary dresses, tops, linen wear & denim
+                Frocks, tops, linen wear & denim
               </p>
               <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-white transition group-hover:gap-3">
                 Shop Women <ArrowRight size={16} />
@@ -201,8 +200,7 @@ export default async function HomePage() {
             <div
               className="absolute inset-0 bg-cover bg-center opacity-75 transition-transform duration-700 ease-out group-hover:scale-105"
               style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=800&q=80')",
+                ...(kidsImage ? { backgroundImage: `url("${kidsImage}")` } : {}),
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -225,8 +223,10 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
         <div className="grid overflow-hidden rounded-[1.5rem] bg-[#eee8df] md:grid-cols-2">
           <div className="relative min-h-[300px] bg-stone-200 sm:min-h-[420px]">
-            <Image src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85"
-              alt="Richly coloured silk saree with traditional detailing" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+            {sareeImage && (
+              <Image src={sareeImage}
+                alt="Saree from the Velora collection" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+            )}
           </div>
           <div className="flex flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 lg:py-16">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">The occasion edit</p>
@@ -285,6 +285,26 @@ export default async function HomePage() {
           <Link href="/shop" className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-stone-700 transition hover:text-stone-950">
             Find your next favourite <ArrowRight size={16} />
           </Link>
+        </div>
+      </section>
+
+      <section aria-labelledby="homepage-support-title" className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-6 rounded-[1.5rem] bg-[#eee8df] px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-10">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">Here to help</p>
+            <h2 id="homepage-support-title" className="mt-2 text-2xl font-medium tracking-tight text-stone-950 sm:text-3xl">
+              A question before you choose?
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">
+              Get in touch with our team for help with a product or an order.
+            </p>
+          </div>
+          <a
+            href="mailto:support@velora.lk"
+            className="inline-flex shrink-0 items-center justify-center rounded-full bg-stone-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-700"
+          >
+            Contact our team
+          </a>
         </div>
       </section>
     </main>

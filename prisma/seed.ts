@@ -14,6 +14,37 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("Seeding Velora database...");
 
+  // This demo seed is intentionally a full reset. Keep the delete order aligned
+  // with the schema's restrictive foreign keys.
+  const databaseUrl = new URL(process.env.DATABASE_URL ?? "");
+  const databaseName = databaseUrl.pathname.replace(/^\//, "").split("?")[0];
+  if (!["localhost", "127.0.0.1", "::1"].includes(databaseUrl.hostname) || databaseName !== "velora") {
+    throw new Error("Refusing to reset a non-local database. Seed is restricted to localhost database 'velora'.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.verificationCode.deleteMany();
+    await tx.passwordResetToken.deleteMany();
+    await tx.couponUsage.deleteMany();
+    await tx.payment.deleteMany();
+    await tx.orderItem.deleteMany();
+    await tx.cartItem.deleteMany();
+    await tx.wishlistItem.deleteMany();
+    await tx.productReview.deleteMany();
+    await tx.notification.deleteMany();
+    await tx.account.deleteMany();
+    await tx.cart.deleteMany();
+    await tx.address.deleteMany();
+    await tx.order.deleteMany();
+    await tx.productImage.deleteMany();
+    await tx.productVariant.deleteMany();
+    await tx.product.deleteMany();
+    await tx.category.deleteMany();
+    await tx.coupon.deleteMany();
+    await tx.user.deleteMany();
+  });
+  console.log("Cleared existing local Velora records.");
+
   // 1. Seed Users
   const hashedPasswordAdmin = await bcrypt.hash("admin123", 12);
   const hashedPasswordCustomer = await bcrypt.hash("customer123", 12);
@@ -107,8 +138,8 @@ async function main() {
   // Women Sub-Categories
   const womenDresses = await prisma.category.upsert({
     where: { slug: "women-dresses" },
-    update: { name: "Dresses", parentId: womenCategory.id },
-    create: { name: "Dresses", slug: "women-dresses", parentId: womenCategory.id },
+    update: { name: "Frocks", parentId: womenCategory.id },
+    create: { name: "Frocks", slug: "women-dresses", parentId: womenCategory.id },
   });
 
   const womenTops = await prisma.category.upsert({
@@ -366,6 +397,61 @@ async function main() {
     },
   ];
 
+  // Alternate product and detail shots make every product page/gallery useful
+  // for a live demo. Keep the first image as the listing-card image.
+  const galleryBySlug: Record<string, string[]> = {
+    "classic-oversized-cotton-t-shirt": [
+      "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1503341504253-dff4815485f1?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "relaxed-fit-linen-short-sleeve-shirt": [
+      "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1603252109303-2751441dd157?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "everyday-stretch-chino-pants": [
+      "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "breezy-tiered-linen-midi-dress": [
+      "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "minimalist-ribbed-knit-crop-top": [
+      "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1551163943-3f6a855d1153?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1551232864-3f0890e580d9?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "high-waist-wide-leg-trousers": [
+      "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "traditional-handwoven-pure-silk-saree": [
+      "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1583391733956-6c78276477e3?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "floral-tiered-bohemian-maxi-skirt": [
+      "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=85",
+    ],
+    "kids-organic-cotton-graphic-tee": [
+      "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1503919005314-30d93d07d823?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=1200&q=85&sat=-10",
+    ],
+    "kids-everyday-play-chino-shorts": [
+      "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=1200&q=85",
+      "https://images.unsplash.com/photo-1503919005314-30d93d07d823?auto=format&fit=crop&w=1200&q=85",
+    ],
+  };
+
   for (const p of productsData) {
     const existing = await prisma.product.findUnique({
       where: { slug: p.slug },
@@ -382,11 +468,11 @@ async function main() {
           isFeatured: p.isFeatured,
           isActive: true,
           images: {
-            create: p.images.map((img, i) => ({
-              url: img.url,
-              publicId: img.publicId,
+            create: galleryBySlug[p.slug].map((url, i) => ({
+              url,
+              publicId: `seed-${p.slug}-${i + 1}`,
               sortOrder: i,
-              isPrimary: img.isPrimary,
+              isPrimary: i === 0,
             })),
           },
           variants: {
@@ -450,7 +536,18 @@ async function main() {
     },
   });
 
+  const seededProducts = await prisma.product.findMany({
+    select: { slug: true, images: { select: { id: true } } },
+  });
+  const productsWithoutGallery = seededProducts.filter((product) => product.images.length < 3);
+  if (seededProducts.length !== productsData.length || productsWithoutGallery.length > 0) {
+    throw new Error(
+      `Seed verification failed: ${seededProducts.length} products, ${productsWithoutGallery.length} with fewer than 3 images.`,
+    );
+  }
+
   console.log("Seeding completed successfully!");
+  console.log(`Verified ${seededProducts.length} clothing products with at least 3 images each.`);
 }
 
 main()

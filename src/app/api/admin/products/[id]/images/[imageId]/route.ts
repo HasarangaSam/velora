@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import cloudinary from "@/lib/cloudinary";
+import { invalidateCachePattern } from "@/lib/redis";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "nodejs";
 
@@ -55,6 +57,9 @@ export async function PATCH(request: Request, context: RouteContext) {
           },
         });
       });
+
+      await invalidateCachePattern("velora:featured_products:v3");
+      revalidatePath("/");
 
       return NextResponse.json({
         message: "Primary image updated successfully.",
@@ -171,6 +176,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
       );
     }
 
+    const imageCount = await prisma.productImage.count({ where: { productId: id } });
+    if (imageCount <= 1) {
+      return NextResponse.json(
+        { message: "A product must have at least one image." },
+        { status: 400 },
+      );
+    }
+
     await cloudinary.uploader.destroy(image.publicId);
 
     await prisma.$transaction(async (tx) => {
@@ -202,6 +215,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
         }
       }
     });
+
+    await invalidateCachePattern("velora:featured_products:v3");
+    revalidatePath("/");
 
     return NextResponse.json({
       message: "Image deleted successfully.",

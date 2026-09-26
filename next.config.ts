@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Vercel uses its own Next.js output adapter. Keep standalone output for
+  // Docker/self-hosted builds, where the generated server.js is used.
+  output: process.env.VERCEL ? undefined : "standalone",
   images: {
     remotePatterns: [
       {
