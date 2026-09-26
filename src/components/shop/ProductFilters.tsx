@@ -21,15 +21,27 @@ type ProductFiltersProps = {
 };
 
 export default function ProductFilters({ categories }: ProductFiltersProps) {
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
+
+  return (
+    <ProductFiltersForm
+      key={searchParamsString}
+      categories={categories}
+      initialSearch={searchParams.get("search") ?? ""}
+    />
+  );
+}
+
+function ProductFiltersForm({
+  categories,
+  initialSearch,
+}: ProductFiltersProps & { initialSearch: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [search, setSearch] = useState(initialSearch);
   const searchParamsString = searchParams.toString();
-
-  useEffect(() => {
-    setSearch(new URLSearchParams(searchParamsString).get("search") ?? "");
-  }, [searchParamsString]);
 
   const category = searchParams.get("category") ?? "";
   const sort = searchParams.get("sort") ?? "newest";

@@ -74,7 +74,7 @@ export default function ProductCard({ product, isSaved = false }: ProductCardPro
           </p>
         </div>
       </Link>
-      <WishlistButton productId={product.id} productName={product.name} initialSaved={isSaved} />
+      <WishlistButton key={`${product.id}-${isSaved}`} productId={product.id} productName={product.name} initialSaved={isSaved} />
     </article>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { PRODUCT_COLOURS, PRODUCT_SIZES } from "@/lib/catalog";
 import SubmitButton from "./SubmitButton";
 import {
@@ -90,25 +90,6 @@ export default function EditProductForm({
       stock: String(variant.stock),
     })),
   );
-
-  useEffect(() => {
-    setName(product.name);
-    setDescription(product.description);
-    setCategoryId(product.categoryId);
-    setSubCategoryId(product.subCategoryId ?? "");
-    setIsActive(product.isActive);
-    setIsFeatured(product.isFeatured);
-
-    setVariants(
-      product.variants.map((variant) => ({
-        id: variant.id,
-        size: variant.size,
-        colour: variant.colour,
-        price: variant.price,
-        stock: String(variant.stock),
-      })),
-    );
-  }, [product]);
 
   function updateVariant(index: number, field: keyof Variant, value: string) {
     setVariants((current) =>

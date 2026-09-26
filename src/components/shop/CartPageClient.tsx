@@ -22,15 +22,7 @@ export default function CartPageClient() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (status === "loading") {
-      return;
-    }
-
-    if (status === "unauthenticated") {
-      setServerCart(null);
-      setLoading(false);
-      return;
-    }
+    if (status !== "authenticated") return;
 
     async function loadCart() {
       try {
@@ -72,6 +64,8 @@ export default function CartPageClient() {
           (total, item) => total + Number(item.price) * item.quantity,
           0,
         );
+
+  const cartIsLoading = status === "loading" || (status === "authenticated" && loading);
 
   async function updateServerItem(item: CartItemData, quantity: number) {
     if (!item.id) {
@@ -159,7 +153,7 @@ export default function CartPageClient() {
     removeGuestItem(item.variantId);
   }
 
-  if (loading) {
+  if (cartIsLoading) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-12">
         <div className="h-8 w-40 animate-pulse rounded bg-slate-200" />

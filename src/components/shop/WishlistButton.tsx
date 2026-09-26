@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Heart } from "lucide-react";
@@ -22,8 +22,6 @@ export default function WishlistButton({
   const [saved, setSaved] = useState(initialSaved);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => setSaved(initialSaved), [initialSaved]);
 
   function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();

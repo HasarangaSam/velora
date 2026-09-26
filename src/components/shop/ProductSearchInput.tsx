@@ -22,26 +22,27 @@ export default function ProductSearchInput({
   id, label, onFocusChange,
 }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionQuery, setSuggestionQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const query = value.trim();
-    if (query.length < 2) {
-      setSuggestions([]);
-      setLoading(false);
-      return;
-    }
     const controller = new AbortController();
+    if (query.length < 2) return () => controller.abort();
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
         const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
         const data = await response.json();
         setSuggestions(data.products ?? []);
+        setSuggestionQuery(query);
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) setSuggestions([]);
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setSuggestions([]);
+          setSuggestionQuery(query);
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -90,7 +91,7 @@ export default function ProductSearchInput({
       </form>
       {open && value.trim().length >= 2 && (
         <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl">
-          {suggestions.map((product) => (
+          {(suggestionQuery === value.trim() ? suggestions : []).map((product) => (
             <Link key={product.slug} role="option" href={`/products/${product.slug}`} onClick={() => setOpen(false)}
               className="flex items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-0 hover:bg-stone-50">
               <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-stone-100">
@@ -101,7 +102,7 @@ export default function ProductSearchInput({
             </Link>
           ))}
           {loading && <p className="px-4 py-3 text-xs text-stone-500">Searching…</p>}
-          {!loading && suggestions.length === 0 && <p className="px-4 py-3 text-xs text-stone-500">No matching products yet.</p>}
+          {!loading && (suggestionQuery !== value.trim() || suggestions.length === 0) && <p className="px-4 py-3 text-xs text-stone-500">No matching products yet.</p>}
           <button type="button" onClick={() => { onSubmit(value); setOpen(false); }}
             className="w-full border-t border-stone-100 px-4 py-3 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">
             View all results for “{value.trim()}”

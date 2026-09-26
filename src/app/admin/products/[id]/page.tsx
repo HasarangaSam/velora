@@ -127,6 +127,7 @@ export default async function ProductEditPage({
 
         <div className="space-y-8">
           <EditProductForm
+            key={product.id}
             product={serializedProduct}
             categories={categories}
           />

@@ -34,13 +34,14 @@ export default function NotificationBell() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    const initialRefresh = window.setTimeout(() => void refresh(), 0);
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, 45_000);
     const handleFocus = () => void refresh();
     window.addEventListener("focus", handleFocus);
     return () => {
+      window.clearTimeout(initialRefresh);
       window.clearInterval(timer);
       window.removeEventListener("focus", handleFocus);
     };

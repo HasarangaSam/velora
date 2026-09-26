@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import AddressSelector, {
@@ -12,6 +13,9 @@ import { useCartStore } from "@/store";
 import type { CartData } from "@/types/cart";
 
 export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: string; quantity: number } }) {
+  const router = useRouter();
+  const buyNowVariantId = buyNow?.variantId;
+  const buyNowQuantity = buyNow?.quantity;
   const [cart, setCart] = useState<CartData | null>(null);
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
@@ -25,13 +29,13 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
   const [couponCode, setCouponCode] = useState("");
   const checkoutRequest = useRef<{ fingerprint: string; key: string } | null>(null);
 
-  async function loadCheckoutData() {
+  const loadCheckoutData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
-      const cartUrl = buyNow
-        ? `/api/cart?buyNowVariantId=${encodeURIComponent(buyNow.variantId)}&quantity=${buyNow.quantity}`
+      const cartUrl = buyNowVariantId
+        ? `/api/cart?buyNowVariantId=${encodeURIComponent(buyNowVariantId)}&quantity=${buyNowQuantity}`
         : "/api/cart";
       const [cartResponse, addressResponse] = await Promise.all([
         fetch(cartUrl, {
@@ -69,11 +73,12 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
     } finally {
       setLoading(false);
     }
-  }
+  }, [buyNowQuantity, buyNowVariantId]);
 
   useEffect(() => {
-    loadCheckoutData();
-  }, []);
+    const timer = window.setTimeout(() => void loadCheckoutData(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadCheckoutData]);
 
   const selectedAddress = useMemo(
     () => addresses.find((address) => address.id === selectedAddressId) ?? null,
@@ -136,7 +141,7 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
       if (!buyNow) clearCart();
       sessionStorage.removeItem("velora:checkout:idempotency");
 
-      window.location.href = `/checkout/payment?orderId=${data.order.id}`;
+      router.push(`/checkout/payment?orderId=${data.order.id}`);
     } catch {
       setError("Unable to create your order.");
     } finally {

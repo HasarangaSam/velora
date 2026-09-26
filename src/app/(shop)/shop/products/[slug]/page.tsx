@@ -139,7 +139,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </h1>
 
             <div className="mt-5 max-w-xs">
-              <WishlistButton productId={product.id} productName={product.name} initialSaved={saved} variant="label" />
+              <WishlistButton key={`${product.id}-${saved}`} productId={product.id} productName={product.name} initialSaved={saved} variant="label" />
             </div>
 
             <div className="mt-6 whitespace-pre-line border-t border-stone-200 pt-5 text-sm leading-7 text-stone-600 sm:text-[15px]">
