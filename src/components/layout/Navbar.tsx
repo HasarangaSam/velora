@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store";
 import LogoutButton from "@/components/auth/LogoutButton";
@@ -19,6 +19,8 @@ import {
 import ProductSearchInput from "@/components/shop/ProductSearchInput";
 import NotificationBell from "@/components/layout/NotificationBell";
 
+const subscribeToNothing = () => () => {};
+
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -26,14 +28,14 @@ export default function Navbar() {
   const selectedCategory = searchParams.get("category") ?? "";
   const { data: session } = useSession();
   const cartItems = useCartStore((state) => state.items);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (pathname?.startsWith("/admin")) {
     return null;
@@ -241,7 +243,7 @@ export default function Navbar() {
               aria-current={isCollectionActive("men") ? "page" : undefined}
               className={`rounded-lg px-3 py-2 transition ${isCollectionActive("men") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
-              Men's Fashion
+              Men&apos;s Fashion
             </Link>
             <Link
               href="/shop?category=women"
@@ -249,7 +251,7 @@ export default function Navbar() {
               aria-current={isCollectionActive("women") ? "page" : undefined}
               className={`rounded-lg px-3 py-2 transition ${isCollectionActive("women") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
-              Women's Fashion
+              Women&apos;s Fashion
             </Link>
             <Link
               href="/shop?category=kids"
@@ -257,7 +259,7 @@ export default function Navbar() {
               aria-current={isCollectionActive("kids") ? "page" : undefined}
               className={`rounded-lg px-3 py-2 transition ${isCollectionActive("kids") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
-              Kids' Collection
+              Kids&apos; Collection
             </Link>
           </nav>
 

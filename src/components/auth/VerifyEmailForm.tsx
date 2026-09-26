@@ -72,17 +72,25 @@ export default function VerifyEmailForm() {
   // Start cooldown timer after resend
   useEffect(() => {
     if (resendState.success) {
-      setResendCooldown(60);
-      cooldownRef.current = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(cooldownRef.current!);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      const startCooldown = setTimeout(() => {
+        setResendCooldown(60);
+        cooldownRef.current = setInterval(() => {
+          setResendCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(cooldownRef.current!);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }, 0);
+
+      return () => {
+        clearTimeout(startCooldown);
+        if (cooldownRef.current) clearInterval(cooldownRef.current);
+      };
     }
+
     return () => {
       if (cooldownRef.current) clearInterval(cooldownRef.current);
     };
@@ -199,7 +207,7 @@ export default function VerifyEmailForm() {
         {/* Divider */}
         <div className="my-5 flex items-center gap-4">
           <div className="h-px flex-1 bg-slate-100" />
-          <span className="text-xs text-slate-400">Didn't receive it?</span>
+          <span className="text-xs text-slate-400">Didn&apos;t receive it?</span>
           <div className="h-px flex-1 bg-slate-100" />
         </div>
 

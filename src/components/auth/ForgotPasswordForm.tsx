@@ -57,7 +57,7 @@ export default function ForgotPasswordForm() {
             <p className="mt-2 text-sm text-slate-500">{state.message}</p>
             <p className="mt-4 text-xs text-slate-400">
               The link expires in <strong>15 minutes</strong>. Check your spam folder if you
-              don't see it.
+              don&apos;t see it.
             </p>
             <Link
               href="/login"

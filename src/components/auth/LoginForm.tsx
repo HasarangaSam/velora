@@ -201,7 +201,7 @@ export default function LoginForm() {
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href={callbackUrl !== "/account" ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/register"}
             className="font-semibold text-blue-600 hover:text-blue-700"
