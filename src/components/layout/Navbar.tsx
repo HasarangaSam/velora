@@ -42,8 +42,8 @@ export default function Navbar() {
     let cancelled = false;
 
     if (!session?.user?.id) {
-      setWishlistCount(0);
-      return;
+      void Promise.resolve().then(() => { if (!cancelled) setWishlistCount(0); });
+      return () => { cancelled = true; };
     }
 
     fetch("/api/wishlist/count", { cache: "no-store" })

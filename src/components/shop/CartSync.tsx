@@ -6,7 +6,6 @@ import { useCartStore } from "@/store";
 
 export default function CartSync() {
   const { status } = useSession();
-  const items = useCartStore((state) => state.items);
   const clear = useCartStore((state) => state.clear);
   const replaceItems = useCartStore((state) => state.replaceItems);
 

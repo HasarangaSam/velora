@@ -68,28 +68,43 @@ export default function OrderStatusDonutChart({
   // Filter only statuses that have at least 1 order, or fallback to an empty ring if 0
   const activeStatuses = statusCounts.filter((item) => item.count > 0);
 
-  let cumulativeOffset = 0;
-  const segments = activeStatuses.map((item) => {
-    const fraction = totalOrders > 0 ? item.count / totalOrders : 0;
-    const strokeDasharray = `${fraction * circumference} ${circumference}`;
-    const strokeDashoffset = -cumulativeOffset;
-    cumulativeOffset += fraction * circumference;
+  const { segments } = activeStatuses.reduce<{
+    offset: number;
+    segments: Array<
+      OrderStatusCount & {
+        fraction: number;
+        strokeDasharray: string;
+        strokeDashoffset: number;
+        config: { label: string; color: string; hoverColor: string; bg: string };
+      }
+    >;
+  }>(
+    (acc, item) => {
+      const fraction = totalOrders > 0 ? item.count / totalOrders : 0;
+      const strokeDasharray = `${fraction * circumference} ${circumference}`;
+      const strokeDashoffset = -acc.offset;
+      const config = STATUS_CONFIG[item.status] ?? {
+        label: item.status,
+        color: "#64748b",
+        hoverColor: "#475569",
+        bg: "bg-slate-500",
+      };
 
-    const config = STATUS_CONFIG[item.status] ?? {
-      label: item.status,
-      color: "#64748b",
-      hoverColor: "#475569",
-      bg: "bg-slate-500",
-    };
+      acc.segments.push({
+        ...item,
+        fraction,
+        strokeDasharray,
+        strokeDashoffset,
+        config,
+      });
 
-    return {
-      ...item,
-      fraction,
-      strokeDasharray,
-      strokeDashoffset,
-      config,
-    };
-  });
+      return {
+        offset: acc.offset + fraction * circumference,
+        segments: acc.segments,
+      };
+    },
+    { offset: 0, segments: [] }
+  );
 
   const activeSegment = hoveredStatus
     ? segments.find((s) => s.status === hoveredStatus)

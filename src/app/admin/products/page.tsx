@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
+import Image from "next/image";
 import ProductRowActions from "@/components/admin/ProductRowActions";
 
 type AdminProductsPageProps = {
@@ -192,11 +193,7 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
                           <div className="flex items-center gap-3">
                             <div className="h-12 w-12 overflow-hidden rounded-lg bg-slate-100">
                               {primaryImage ? (
-                                <img
-                                  src={primaryImage.url}
-                                  alt={product.name}
-                                  className="h-full w-full object-cover"
-                                />
+                                <Image src={primaryImage.url} alt={product.name} width={48} height={48} className="h-full w-full object-cover" />
                               ) : null}
                             </div>
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import OrderStatusUpdater from "@/components/admin/OrderStatusUpdater";
 import { ArrowLeft, CreditCard, MapPin, User, Package } from "lucide-react";
+import Image from "next/image";
 
 type OrderDetailPageProps = {
   params: Promise<{
@@ -100,9 +101,11 @@ export default async function AdminOrderDetailPage({
                     <div className="flex items-center gap-4">
                       <div className="h-16 w-16 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
                         {img ? (
-                          <img
+                          <Image
                             src={img}
                             alt={item.name}
+                            width={64}
+                            height={64}
                             className="h-full w-full object-cover"
                           />
                         ) : null}

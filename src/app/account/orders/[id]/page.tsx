@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { ArrowLeft, CreditCard, MapPin, Package, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CreditCard, MapPin, Package } from "lucide-react";
+import Image from "next/image";
 
 type CustomerOrderDetailProps = {
   params: Promise<{
@@ -147,9 +148,11 @@ export default async function CustomerOrderDetailPage({
                   <div className="flex items-center gap-4">
                     <div className="h-16 w-16 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
                       {img ? (
-                        <img
+                        <Image
                           src={img}
                           alt={item.name}
+                          width={64}
+                          height={64}
                           className="h-full w-full object-cover"
                         />
                       ) : null}

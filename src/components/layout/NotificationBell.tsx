@@ -52,7 +52,8 @@ export default function NotificationBell() {
   }, [refresh]);
 
   useEffect(() => {
-    void refresh();
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
   }, [pathname, refresh]);
 
   useEffect(() => {

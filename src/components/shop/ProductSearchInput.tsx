@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
+import Image from "next/image";
 
 type Suggestion = { name: string; slug: string; image: string | null; price: string | null };
 type Props = {
@@ -26,6 +27,7 @@ export default function ProductSearchInput({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listboxId = id ? `${id}-listbox` : "product-search-listbox";
 
   useEffect(() => {
     const query = value.trim();
@@ -72,6 +74,7 @@ export default function ProductSearchInput({
         <input
           id={id}
           type="text"
+          role="combobox"
           value={value}
           onChange={(event) => { onChange(event.target.value); setOpen(true); }}
           onFocus={() => { setOpen(true); onFocusChange?.(true); }}
@@ -80,6 +83,8 @@ export default function ProductSearchInput({
           autoComplete="off"
           aria-autocomplete="list"
           aria-expanded={open && value.trim().length >= 2}
+          aria-haspopup="listbox"
+          aria-controls={listboxId}
           className={`w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-9 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100 ${value ? "pr-10" : "pr-3"} ${inputClassName}`}
         />
         {value && (
@@ -90,12 +95,12 @@ export default function ProductSearchInput({
         )}
       </form>
       {open && value.trim().length >= 2 && (
-        <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl">
+        <div id={listboxId} role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl">
           {(suggestionQuery === value.trim() ? suggestions : []).map((product) => (
             <Link key={product.slug} role="option" href={`/products/${product.slug}`} onClick={() => setOpen(false)}
               className="flex items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-0 hover:bg-stone-50">
               <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-stone-100">
-                {product.image && <img src={product.image} alt="" className="h-full w-full object-cover" />}
+                {product.image && <Image src={product.image} alt="" width={40} height={48} className="h-full w-full object-cover" />}
               </div>
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800">{product.name}</span>
               {product.price && <span className="shrink-0 text-xs text-stone-500">LKR {Number(product.price).toLocaleString()}</span>}

@@ -49,7 +49,8 @@ async function main() {
   const hashedPasswordAdmin = await bcrypt.hash("admin123", 12);
   const hashedPasswordCustomer = await bcrypt.hash("customer123", 12);
 
-  const admin = await prisma.user.upsert({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _admin = await prisma.user.upsert({
     where: { email: "admin@velora.lk" },
     update: {
       role: "ADMIN",

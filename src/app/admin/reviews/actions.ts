@@ -24,7 +24,7 @@ export async function moderateProductReview(reviewId: string, nextStatus: "APPRO
     });
     if (!review) return { success: false, message: "Review not found." };
 
-    const updated = await prisma.productReview.update({
+    await prisma.productReview.update({
       where: { id: review.id },
       data: { status: input.data.status },
     });
