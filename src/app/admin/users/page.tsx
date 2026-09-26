@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import UserRoleToggle from "@/components/admin/UserRoleToggle";
 import Link from "next/link";
 import { ArrowUpRight, Plus, Users } from "lucide-react";
+import { UserRole } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 type AdminUsersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -18,15 +20,15 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
     Array.isArray(value) ? value[0] : value;
   const search = (getValue(params.search) ?? "").trim().slice(0, 100);
   const requestedRole = getValue(params.role);
-  const role = requestedRole === "USER" || requestedRole === "ADMIN"
+  const role: UserRole | null = requestedRole === UserRole.USER || requestedRole === UserRole.ADMIN
     ? requestedRole
-    : "ALL";
+    : null;
   const requestedPage = Number.parseInt(getValue(params.page) ?? "1", 10);
   const safeRequestedPage = Number.isFinite(requestedPage) && requestedPage > 0
     ? requestedPage
     : 1;
 
-  const where = {
+  const where: Prisma.UserWhereInput = {
     ...(search
       ? {
           OR: [
@@ -35,7 +37,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
           ],
         }
       : {}),
-    ...(role !== "ALL" ? { role } : {}),
+    ...(role ? { role } : {}),
   };
 
   const [totalUsers, customerCount, adminCount] = await Promise.all([
@@ -64,7 +66,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
   function pageHref(targetPage: number) {
     const nextParams = new URLSearchParams();
     if (search) nextParams.set("search", search);
-    if (role !== "ALL") nextParams.set("role", role);
+    if (role) nextParams.set("role", role);
     if (targetPage > 1) nextParams.set("page", String(targetPage));
     const query = nextParams.toString();
     return `/admin/users${query ? `?${query}` : ""}`;
@@ -100,7 +102,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
         </div>
         <div>
           <label htmlFor="role" className="mb-1.5 block text-xs font-medium text-slate-600">Role</label>
-          <select id="role" name="role" defaultValue={role} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+          <select id="role" name="role" defaultValue={role ?? "ALL"} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500">
             <option value="ALL">All roles</option>
             <option value="USER">Customers</option>
             <option value="ADMIN">Administrators</option>
@@ -116,7 +118,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
         {users.length === 0 ? (
           <div className="p-12 text-center text-slate-500 text-sm">
             <Users className="mx-auto text-slate-300 mb-3" size={36} />
-            <p className="font-semibold text-slate-700">{search || role !== "ALL" ? "No matching users" : "No users found"}</p>
+            <p className="font-semibold text-slate-700">{search || role ? "No matching users" : "No users found"}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
