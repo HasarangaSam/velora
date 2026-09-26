@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import AddressSelector, {
@@ -11,7 +11,7 @@ import { useCartStore } from "@/store";
 
 import type { CartData } from "@/types/cart";
 
-export default function CheckoutPageClient() {
+export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: string; quantity: number } }) {
   const [cart, setCart] = useState<CartData | null>(null);
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
@@ -23,14 +23,18 @@ export default function CheckoutPageClient() {
 
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [couponCode, setCouponCode] = useState("");
+  const checkoutRequest = useRef<{ fingerprint: string; key: string } | null>(null);
 
   async function loadCheckoutData() {
     try {
       setLoading(true);
       setError("");
 
+      const cartUrl = buyNow
+        ? `/api/cart?buyNowVariantId=${encodeURIComponent(buyNow.variantId)}&quantity=${buyNow.quantity}`
+        : "/api/cart";
       const [cartResponse, addressResponse] = await Promise.all([
-        fetch("/api/cart", {
+        fetch(cartUrl, {
           cache: "no-store",
         }),
         fetch("/api/addresses", {
@@ -88,15 +92,37 @@ export default function CheckoutPageClient() {
     setError("");
 
     try {
+      const orderRequest = {
+        addressId: selectedAddressId,
+        couponCode,
+        ...(buyNow ? { buyNow } : {}),
+      };
+      const fingerprint = JSON.stringify(orderRequest);
+      if (checkoutRequest.current?.fingerprint !== fingerprint) {
+        const persistedRequest = sessionStorage.getItem("velora:checkout:idempotency");
+        if (persistedRequest) {
+          try {
+            const parsed = JSON.parse(persistedRequest) as { fingerprint?: string; key?: string };
+            if (parsed.fingerprint === fingerprint && parsed.key) {
+              checkoutRequest.current = { fingerprint, key: parsed.key };
+            }
+          } catch {
+            sessionStorage.removeItem("velora:checkout:idempotency");
+          }
+        }
+        if (checkoutRequest.current?.fingerprint !== fingerprint) {
+          checkoutRequest.current = { fingerprint, key: crypto.randomUUID() };
+        }
+        sessionStorage.setItem("velora:checkout:idempotency", JSON.stringify(checkoutRequest.current));
+      }
+
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Idempotency-Key": checkoutRequest.current.key,
         },
-        body: JSON.stringify({
-          addressId: selectedAddressId,
-          couponCode,
-        }),
+        body: JSON.stringify(orderRequest),
       });
 
       const data = await response.json();
@@ -107,7 +133,8 @@ export default function CheckoutPageClient() {
       }
 
       // Clear local cart store — DB cart already cleared by the server
-      clearCart();
+      if (!buyNow) clearCart();
+      sessionStorage.removeItem("velora:checkout:idempotency");
 
       window.location.href = `/checkout/payment?orderId=${data.order.id}`;
     } catch {

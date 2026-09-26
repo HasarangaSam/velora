@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ImagePlus, X } from "lucide-react";
 import { PRODUCT_COLOURS, PRODUCT_SIZES } from "@/lib/catalog";
 import {
   createProduct,
@@ -24,6 +25,8 @@ type Variant = {
   stock: string;
 };
 
+type SelectedImage = { file: File; previewUrl: string };
+
 const initialVariant: Variant = { size: "M", colour: "Black", price: "", stock: "0" };
 
 const initialState: ProductActionState = { success: false, message: "" };
@@ -31,7 +34,8 @@ const initialState: ProductActionState = { success: false, message: "" };
 export default function ProductForm({ categories }: { categories: Category[] }) {
   const [state, formAction] = useActionState(createProduct, initialState);
   const router = useRouter();
-  const [images, setImages] = useState<File[]>([]);
+  const [images, setImages] = useState<SelectedImage[]>([]);
+  const imagePreviewUrls = useRef<string[]>([]);
   const [imageProgress, setImageProgress] = useState("");
   const [imageError, setImageError] = useState("");
   const processedProductId = useRef<string | null>(null);
@@ -39,6 +43,10 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
   const [isFeatured, setIsFeatured] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [variants, setVariants] = useState<Variant[]>([{ ...initialVariant }]);
+
+  useEffect(() => () => {
+    imagePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
 
   // Sub-categories for the currently selected main category
   const subCategories =
@@ -52,7 +60,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
     async function uploadSelectedImages() {
       const failures: string[] = [];
       for (let index = 0; index < images.length; index++) {
-        const file = images[index];
+        const file = images[index].file;
         setImageProgress(`Uploading image ${index + 1} of ${images.length}: ${file.name}`);
         if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
           failures.push(`${file.name} (must be an image up to 5 MB)`);
@@ -74,7 +82,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
         setImageProgress("");
         return;
       } else {
-        router.replace(`/admin/products/${productId}`);
+        router.replace("/admin/products");
       }
     }
 
@@ -96,17 +104,6 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
         name="variants"
         value={JSON.stringify(variants)}
       />
-
-      <section className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-        <label htmlFor="productImages" className="block text-sm font-semibold text-slate-900">Product images <span className="font-normal text-slate-500">(optional)</span></label>
-        <p className="mt-1 text-sm text-slate-500">Choose the photos now. They’ll upload after the product is saved. JPG, PNG or WEBP, up to 5 MB each.</p>
-        <input id="productImages" type="file" accept="image/jpeg,image/png,image/webp" multiple
-          onChange={(event) => setImages(Array.from(event.target.files ?? []))}
-          className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
-        {images.length > 0 && <p className="mt-2 text-sm text-slate-600">{images.length} image{images.length === 1 ? "" : "s"} selected</p>}
-        {imageProgress && <p role="status" className="mt-2 text-sm text-blue-700">{imageProgress}</p>}
-        {imageError && <p role="alert" className="mt-2 text-sm text-amber-700">{imageError}</p>}
-      </section>
 
       {/* Name + Category row */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -219,7 +216,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-900">Variants</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Define size, colour, price and stock.</p>
+            <p className="text-xs text-slate-500 mt-0.5">Set size or choose One Size for sarees and other size-free products. Stock is tracked per option.</p>
           </div>
           <button
             type="button"
@@ -234,46 +231,58 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           {variants.map((variant, index) => (
             <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
               <div className="grid gap-3 sm:grid-cols-4">
-                <select
-                  value={variant.size}
-                  onChange={(e) => updateVariant(index, "size", e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                >
-                  {PRODUCT_SIZES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  Size / fit
+                  <select
+                    value={variant.size}
+                    onChange={(e) => updateVariant(index, "size", e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"
+                  >
+                    {PRODUCT_SIZES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </label>
 
-                <select
-                  value={variant.colour}
-                  onChange={(e) => updateVariant(index, "colour", e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                >
-                  {PRODUCT_COLOURS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  Colour
+                  <select
+                    value={variant.colour}
+                    onChange={(e) => updateVariant(index, "colour", e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"
+                  >
+                    {PRODUCT_COLOURS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
 
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={variant.price}
-                  onChange={(e) => updateVariant(index, "price", e.target.value)}
-                  placeholder="Price (LKR)"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  required
-                />
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  Price (LKR)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={variant.price}
+                    onChange={(e) => updateVariant(index, "price", e.target.value)}
+                    placeholder="0.00"
+                    className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800"
+                    required
+                  />
+                </label>
 
-                <input
-                  type="number"
-                  min="0"
-                  value={variant.stock}
-                  onChange={(e) => updateVariant(index, "stock", e.target.value)}
-                  placeholder="Stock"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                  required
-                />
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  Stock quantity
+                  <input
+                    type="number"
+                    min="0"
+                    value={variant.stock}
+                    onChange={(e) => updateVariant(index, "stock", e.target.value)}
+                    placeholder="0"
+                    className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800"
+                    required
+                  />
+                </label>
               </div>
 
               {variants.length > 1 && (
@@ -291,6 +300,71 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           ))}
         </div>
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+            <ImagePlus size={19} aria-hidden="true" />
+          </span>
+          <div>
+            <label htmlFor="productImages" className="block text-sm font-semibold text-slate-900">
+              Product images
+            </label>
+            <p className="mt-1 text-sm leading-5 text-slate-500">
+              Add photos for the product gallery. The first photo is used as the main image.
+            </p>
+          </div>
+        </div>
+
+        <label htmlFor="productImages" className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50/40">
+          <span className="text-sm font-medium text-slate-800">Choose product photos</span>
+          <span className="mt-1 text-xs text-slate-500">JPG, PNG or WEBP · Up to 5 MB each · Select multiple</span>
+          <input id="productImages" type="file" accept="image/jpeg,image/png,image/webp" multiple
+            onChange={(event) => {
+              imagePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+              const selected = Array.from(event.target.files ?? []).map((file) => ({
+                file,
+                previewUrl: URL.createObjectURL(file),
+              }));
+              imagePreviewUrls.current = selected.map((image) => image.previewUrl);
+              setImages(selected);
+            }}
+            className="sr-only" />
+        </label>
+
+        {images.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-3 text-sm font-medium text-slate-700">
+              Selected photos <span className="font-normal text-slate-500">({images.length})</span>
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {images.map((image, index) => (
+                <div key={`${image.file.name}-${index}`} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                  <div role="img" aria-label={`Preview of ${image.file.name}`} className="aspect-[4/5] bg-cover bg-center"
+                    style={{ backgroundImage: `url("${image.previewUrl}")` }} />
+                  <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ${index === 0 ? "bg-slate-900 text-white" : "bg-white/95 text-slate-700"}`}>
+                    {index === 0 ? "Main image" : `Image ${index + 1}`}
+                  </span>
+                  <button type="button" aria-label={`Remove ${image.file.name}`} onClick={() => {
+                    URL.revokeObjectURL(image.previewUrl);
+                    const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
+                    imagePreviewUrls.current = nextImages.map((selectedImage) => selectedImage.previewUrl);
+                    setImages(nextImages);
+                  }} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm transition hover:bg-red-50 hover:text-red-700">
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                  <div className="truncate border-t border-slate-200 bg-white px-3 py-2 text-xs text-slate-600" title={image.file.name}>
+                    {image.file.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {imageProgress && <p role="status" className="mt-3 text-sm text-blue-700">{imageProgress}</p>}
+        {imageError && <p role="alert" className="mt-3 text-sm text-amber-700">{imageError}</p>}
+      </section>
 
       {state.message && (
         <p

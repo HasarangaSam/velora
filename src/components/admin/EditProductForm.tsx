@@ -298,7 +298,7 @@ export default function EditProductForm({
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Size
+                    Size / fit
                   </label>
 
                   <select
@@ -356,7 +356,7 @@ export default function EditProductForm({
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Stock
+                    Stock quantity
                   </label>
 
                   <input

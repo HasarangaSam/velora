@@ -44,7 +44,7 @@ export type CatalogResult = {
 
 function buildCacheKey(query: z.infer<typeof catalogQuerySchema>) {
   return [
-    "velora:products",
+    "velora:products:v2",
     query.search,
     query.category,
     query.minPrice ?? "",

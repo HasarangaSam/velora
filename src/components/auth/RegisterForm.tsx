@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Lock, Mail, User } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import {
@@ -32,17 +32,24 @@ const initialState: RegisterActionState = {
 
 export default function RegisterForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const requestedCallback = params.get("callbackUrl");
+  const callbackUrl = requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
+    ? requestedCallback
+    : null;
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction] = useActionState(registerUser, initialState);
 
   useEffect(() => {
     if (state.success && state.email) {
       const timer = setTimeout(() => {
-        router.push(`/verify-email?email=${encodeURIComponent(state.email!)}`);
+        const next = new URLSearchParams({ email: state.email! });
+        if (callbackUrl) next.set("callbackUrl", callbackUrl);
+        router.push(`/verify-email?${next.toString()}`);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [state.success, state.email, router]);
+  }, [state.success, state.email, router, callbackUrl]);
 
   return (
     <div className="w-full max-w-md">
@@ -180,7 +187,7 @@ export default function RegisterForm() {
         <p className="mt-6 text-center text-sm text-slate-500">
           Already have an account?{" "}
           <Link
-            href="/login"
+            href={callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login"}
             className="font-semibold text-blue-600 hover:text-blue-700"
           >
             Sign in

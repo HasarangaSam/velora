@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { useFormStatus } from "react-dom";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { changeMyEmail, changeMyPassword, deleteMyAccount, updateMyProfile, type ProfileActionState } from "@/app/account/profile/actions";
@@ -10,6 +11,33 @@ const initialState: ProfileActionState = { success: false, message: "" };
 function FormMessage({ state }: { state: ProfileActionState }) {
   if (!state.message) return null;
   return <p role={state.success ? "status" : "alert"} className={`mt-3 rounded-lg px-3 py-2 text-sm ${state.success ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"}`}>{state.message}</p>;
+}
+
+function ProfileSubmitButton({
+  children,
+  pendingText,
+  variant = "primary",
+}: {
+  children: string;
+  pendingText: string;
+  variant?: "primary" | "secondary" | "danger";
+}) {
+  const { pending } = useFormStatus();
+  const styles = {
+    primary: "bg-stone-950 text-white hover:bg-stone-700 disabled:bg-stone-400",
+    secondary: "border border-stone-300 text-stone-800 hover:bg-stone-50 disabled:opacity-60",
+    danger: "border border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-60",
+  };
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className={`rounded-xl px-5 py-3 text-sm font-medium transition disabled:cursor-wait ${styles[variant]}`}
+    >
+      {pending ? pendingText : children}
+    </button>
+  );
 }
 
 export default function ProfileManager({ profile }: {
@@ -53,7 +81,7 @@ export default function ProfileManager({ profile }: {
             <input id="profileName" name="name" defaultValue={profile.name ?? ""} required minLength={2} maxLength={100} className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100" />
             {profileState.errors?.name && <p className="mt-1 text-sm text-rose-600">{profileState.errors.name[0]}</p>}
           </div>
-          <button type="submit" className="rounded-xl bg-stone-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-700">Save profile</button>
+          <ProfileSubmitButton pendingText="Saving…">Save profile</ProfileSubmitButton>
           <FormMessage state={profileState} />
         </form>
       </section>
@@ -76,7 +104,7 @@ export default function ProfileManager({ profile }: {
             <input id="emailPassword" name="password" type="password" autoComplete="current-password" required className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-700 focus:ring-2 focus:ring-stone-100" />
           </div>}
           <p className="text-xs leading-5 text-stone-500">We’ll send a verification code to the new address. You’ll need to verify it before signing in again.</p>
-          <button type="submit" className="rounded-xl border border-stone-300 px-5 py-3 text-sm font-medium text-stone-800 transition hover:bg-stone-50">Update email</button>
+          <ProfileSubmitButton variant="secondary" pendingText="Updating…">Update email</ProfileSubmitButton>
           <FormMessage state={emailState} />
         </form>
       </section>
@@ -103,7 +131,7 @@ export default function ProfileManager({ profile }: {
               <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" minLength={8} maxLength={100} required className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-700 focus:ring-2 focus:ring-stone-100" />
               {passwordState.errors?.confirmPassword && <p className="mt-1 text-sm text-rose-600">{passwordState.errors.confirmPassword[0]}</p>}
             </div>
-            <button type="submit" className="rounded-xl bg-stone-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-700">Update password</button>
+            <ProfileSubmitButton pendingText="Updating…">Update password</ProfileSubmitButton>
             <FormMessage state={passwordState} />
           </form>
         </section>
@@ -128,7 +156,7 @@ export default function ProfileManager({ profile }: {
               <label htmlFor="deleteConfirmation" className="mb-2 block text-sm font-medium text-stone-700">Type DELETE to confirm</label>
               <input id="deleteConfirmation" name="confirmation" required pattern="DELETE" className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100" />
             </div>
-            <button type="submit" className="rounded-xl border border-rose-300 px-5 py-3 text-sm font-medium text-rose-700 transition hover:bg-rose-50">Permanently close account</button>
+            <ProfileSubmitButton variant="danger" pendingText="Closing account…">Permanently close account</ProfileSubmitButton>
             <FormMessage state={deleteState} />
           </form>
         </div>

@@ -1,12 +1,27 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { deleteProductReview, saveProductReview, type ProductReviewActionState } from "@/app/account/reviews/actions";
 import StarRating from "@/components/shop/StarRating";
 
 const initialState: ProductReviewActionState = { success: false, message: "" };
+
+function ReviewSubmitButton({ isEdit }: { isEdit: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+    >
+      {pending ? "Saving…" : isEdit ? "Update review" : "Submit review"}
+    </button>
+  );
+}
 
 export default function ReviewForm({
   productId,
@@ -59,7 +74,7 @@ export default function ReviewForm({
       </div>
       {state.message && <p role={state.success ? "status" : "alert"} className={`rounded-lg px-3 py-2 text-sm ${state.success ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"}`}>{state.message}</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">{existing ? "Update review" : "Submit review"}</button>
+        <ReviewSubmitButton isEdit={Boolean(existing)} />
         {allowDelete && existing && <button type="button" onClick={handleDelete} disabled={deleting} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-60"><Trash2 size={15} />{deleting ? "Deleting…" : "Delete review"}</button>}
       </div>
     </form>

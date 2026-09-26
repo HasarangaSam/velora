@@ -9,6 +9,10 @@ import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 export default function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const requestedCallback = params.get("callbackUrl");
+  const callbackUrl = requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
+    ? requestedCallback
+    : "/account";
 
   const isVerified = params.get("verified") === "true";
   const isPasswordReset = params.get("passwordReset") === "true";
@@ -41,7 +45,7 @@ export default function LoginForm() {
       return;
     }
 
-    router.push("/account");
+    router.push(callbackUrl);
     router.refresh();
   }
 
@@ -50,7 +54,7 @@ export default function LoginForm() {
     setPending(true);
 
     await signIn("google", {
-      callbackUrl: "/account",
+      callbackUrl,
     });
   }
 
@@ -199,7 +203,7 @@ export default function LoginForm() {
         <p className="mt-6 text-center text-sm text-slate-500">
           Don't have an account?{" "}
           <Link
-            href="/register"
+            href={callbackUrl !== "/account" ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/register"}
             className="font-semibold text-blue-600 hover:text-blue-700"
           >
             Create one

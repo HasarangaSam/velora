@@ -4,9 +4,60 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getOrCreateCart, getUserCart } from "@/lib/cart";
 import { addToCartSchema } from "@/lib/validation/cart";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireUser();
+
+    const url = new URL(request.url);
+    const buyNowVariantId = url.searchParams.get("buyNowVariantId");
+    if (buyNowVariantId) {
+      const parsed = addToCartSchema.safeParse({
+        variantId: buyNowVariantId,
+        quantity: url.searchParams.get("quantity") ?? 1,
+      });
+      if (!parsed.success) {
+        return NextResponse.json({ message: "Invalid Buy Now selection." }, { status: 400 });
+      }
+
+      const variant = await prisma.productVariant.findUnique({
+        where: { id: parsed.data.variantId },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              isActive: true,
+              images: { where: { isPrimary: true }, take: 1, orderBy: { sortOrder: "asc" }, select: { url: true } },
+            },
+          },
+        },
+      });
+      if (!variant || !variant.product.isActive) {
+        return NextResponse.json({ message: "This product is no longer available." }, { status: 404 });
+      }
+      if (variant.stock < parsed.data.quantity) {
+        return NextResponse.json({ message: "There is not enough stock for that quantity." }, { status: 409 });
+      }
+
+      const subtotal = Number(variant.price) * parsed.data.quantity;
+      return NextResponse.json({
+        items: [{
+          productId: variant.productId,
+          variantId: variant.id,
+          productName: variant.product.name,
+          slug: variant.product.slug,
+          image: variant.product.images[0]?.url ?? null,
+          size: variant.size,
+          colour: variant.colour,
+          price: variant.price.toString(),
+          quantity: parsed.data.quantity,
+          stock: variant.stock,
+        }],
+        itemCount: parsed.data.quantity,
+        subtotal: subtotal.toFixed(2),
+      });
+    }
 
     const cart = await getUserCart(user.id);
 

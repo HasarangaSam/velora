@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
@@ -12,6 +13,32 @@ function generateOrderNumber() {
   const random = Math.random().toString(36).slice(2, 8).toUpperCase();
 
   return `VEL-${timestamp}-${random}`;
+}
+
+function serializeCreatedOrder<T extends {
+  id: string;
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  subtotal: { toString(): string };
+  discount: { toString(): string };
+  shippingCost: { toString(): string };
+  total: { toString(): string };
+  couponCode: string | null;
+  payment: { id: string } | null;
+}>(order: T) {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    subtotal: order.subtotal.toString(),
+    discount: order.discount.toString(),
+    shippingCost: order.shippingCost.toString(),
+    total: order.total.toString(),
+    couponCode: order.couponCode,
+    paymentId: order.payment?.id ?? null,
+  };
 }
 
 export async function GET() {
@@ -93,12 +120,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const user = await requireUser();
-
-    const { success } = await checkRateLimit(`order:${user.id}`, 10, 600);
-    if (!success) {
+    const idempotencyKey = request.headers.get("Idempotency-Key")?.trim();
+    if (!idempotencyKey || !/^[\w-]{16,128}$/.test(idempotencyKey)) {
       return NextResponse.json(
-        { message: "Too many checkout requests. Please wait a few minutes." },
-        { status: 429 },
+        { message: "A valid Idempotency-Key header is required." },
+        { status: 400 },
       );
     }
 
@@ -113,6 +139,40 @@ export async function POST(request: Request) {
           errors: result.error.flatten().fieldErrors,
         },
         { status: 400 },
+      );
+    }
+
+    const requestHash = createHash("sha256")
+      .update(JSON.stringify({
+        userId: user.id,
+        addressId: result.data.addressId,
+        couponCode: result.data.couponCode?.trim().toUpperCase() ?? "",
+        buyNow: result.data.buyNow ?? null,
+      }))
+      .digest("hex");
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { checkoutRequestKey: idempotencyKey },
+      include: { payment: true },
+    });
+    if (existingOrder) {
+      if (existingOrder.userId !== user.id || existingOrder.checkoutRequestHash !== requestHash) {
+        return NextResponse.json(
+          { message: "This checkout request key was already used for a different request." },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json(
+        { message: "Order already created.", order: serializeCreatedOrder(existingOrder) },
+        { status: 200 },
+      );
+    }
+
+    const { success } = await checkRateLimit(`order:${user.id}`, 10, 600);
+    if (!success) {
+      return NextResponse.json(
+        { message: "Too many checkout requests. Please wait a few minutes." },
+        { status: 429 },
       );
     }
 
@@ -137,6 +197,7 @@ export async function POST(request: Request) {
       totals = await calculateOrderTotals(
         user.id,
         result.data.couponCode || undefined,
+        result.data.buyNow,
       );
     } catch (error) {
       if (!(error instanceof Error)) {
@@ -211,41 +272,38 @@ export async function POST(request: Request) {
             { status: 400 },
           );
 
+        case error.message === "WELCOME500_FIRST_ORDER_ONLY":
+          return NextResponse.json(
+            { message: "WELCOME500 is available on your first successful order only." },
+            { status: 400 },
+          );
+
         default:
           throw error;
       }
     }
 
-    const cart = await prisma.cart.findUnique({
-      where: {
-        userId: user.id,
-      },
+    const buyNow = result.data.buyNow;
+    const cart = buyNow ? null : await prisma.cart.findUnique({
+      where: { userId: user.id },
       include: {
         items: {
           include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                isActive: true,
-              },
-            },
-            variant: {
-              select: {
-                id: true,
-                productId: true,
-                size: true,
-                colour: true,
-                price: true,
-                stock: true,
-              },
-            },
+            product: { select: { id: true, name: true, isActive: true } },
+            variant: { select: { id: true, productId: true, size: true, colour: true, price: true, stock: true } },
           },
         },
       },
     });
+    const buyNowVariant = buyNow ? await prisma.productVariant.findUnique({
+      where: { id: buyNow.variantId },
+      include: { product: { select: { id: true, name: true, isActive: true } } },
+    }) : null;
+    const itemsToOrder = buyNow && buyNowVariant
+      ? [{ productId: buyNowVariant.productId, variantId: buyNowVariant.id, quantity: buyNow.quantity, product: buyNowVariant.product, variant: buyNowVariant }]
+      : cart?.items ?? [];
 
-    if (!cart || cart.items.length === 0) {
+    if (itemsToOrder.length === 0) {
       return NextResponse.json(
         {
           message: "Your cart is empty.",
@@ -254,8 +312,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const order = await prisma.$transaction(async (tx) => {
-      for (const item of cart.items) {
+    let order;
+    let replayed = false;
+    try {
+      order = await prisma.$transaction(async (tx) => {
+      for (const item of itemsToOrder) {
         const currentVariant = await tx.productVariant.findUnique({
           where: {
             id: item.variantId,
@@ -285,6 +346,8 @@ export async function POST(request: Request) {
       const createdOrder = await tx.order.create({
         data: {
           orderNumber: generateOrderNumber(),
+          checkoutRequestKey: idempotencyKey,
+          checkoutRequestHash: requestHash,
           userId: user.id,
           addressId: address.id,
 
@@ -306,7 +369,7 @@ export async function POST(request: Request) {
           couponCode: totals.couponCode,
 
           items: {
-            create: cart.items.map((item) => ({
+            create: itemsToOrder.map((item) => ({
               productId: item.productId,
               variantId: item.variantId,
               name: item.product.name,
@@ -332,15 +395,28 @@ export async function POST(request: Request) {
         },
       });
 
-      // Clear cart items after order is created
-      await tx.cartItem.deleteMany({
-        where: {
-          cartId: cart.id,
-        },
-      });
+      if (cart) {
+        await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+      }
 
       return createdOrder;
-    });
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+        const concurrentOrder = await prisma.order.findUnique({
+          where: { checkoutRequestKey: idempotencyKey },
+          include: { payment: true },
+        });
+        if (concurrentOrder?.userId === user.id && concurrentOrder.checkoutRequestHash === requestHash) {
+          order = concurrentOrder;
+          replayed = true;
+        } else {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
 
     try {
       await notifyAdmins({
@@ -354,21 +430,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message: "Order created successfully.",
-        order: {
-          id: order.id,
-          orderNumber: order.orderNumber,
-          status: order.status,
-          paymentStatus: order.paymentStatus,
-          subtotal: order.subtotal.toString(),
-          discount: order.discount.toString(),
-          shippingCost: order.shippingCost.toString(),
-          total: order.total.toString(),
-          couponCode: order.couponCode,
-          paymentId: order.payment?.id ?? null,
-        },
+        message: replayed ? "Order already created." : "Order created successfully.",
+        order: serializeCreatedOrder(order),
       },
-      { status: 201 },
+      { status: replayed ? 200 : 201 },
     );
   } catch (error) {
     if (error instanceof Error) {

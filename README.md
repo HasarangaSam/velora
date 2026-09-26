@@ -153,13 +153,15 @@ If SMTP is not configured or email delivery fails, verification codes and passwo
 
 Order confirmation and order status emails use the same SMTP settings. A confirmation email is sent from the verified PayHere server notification after payment changes to `PAID`; returning to the browser success page alone does not confirm payment or trigger an email. PayHere must be able to reach the configured notification URL. The email contains the order number, purchased items and variants, quantities, subtotal, discount, shipping fee, paid total, and shipping address. Failed SMTP delivery is written to the server log.
 
+Checkout order creation uses an `Idempotency-Key` saved for the active browser checkout attempt. Repeating the same request returns the original order; reusing its key with different checkout details is rejected. PayHere success callbacks confirm payment, decrement stock, and consume coupon usage in one serializable transaction. Duplicate success callbacks do not repeat those effects, serialization conflicts are retried, and late failed or pending callbacks cannot downgrade a paid payment. Apply the `20260924170000_add_checkout_request_idempotency` migration before deploying this version.
+
 The notification bell reads the signed-in user’s notifications from the database and checks for updates on page focus and every 45 seconds while the page is visible. No socket server or separate notification service is required. New orders and new reviews notify each admin account; admin order status changes notify the affected customer.
 
 ## Configuration notes
 
 - `PAYHERE_SANDBOX=true` sends checkout to PayHere’s sandbox. Set it to `false` only when using live merchant credentials and a publicly reachable notification URL.
 - The PayHere notification endpoint is `/api/payments/payhere/notify`. Configure the matching public URL in the PayHere merchant settings.
-- Apply schema changes with `npx prisma migrate deploy` before starting the app. The notification bell requires the `Notification` table from the `20260924130000_add_notifications` migration.
+- Apply schema changes with `npx prisma migrate deploy` before starting the app. This includes the notification table and checkout idempotency columns.
 - Customer order emails are sent only after PayHere’s signed payment callback confirms success. Keep SMTP credentials valid and set `SMTP_FROM` to an address permitted by the configured SMTP provider.
 - Product image uploads require valid Cloudinary credentials. Uploads are limited to 5 MB per image by the admin image endpoint.
 - `.env*`, generated Prisma output, build output, and dependencies are excluded from Git.

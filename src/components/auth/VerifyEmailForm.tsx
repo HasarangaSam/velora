@@ -39,6 +39,10 @@ export default function VerifyEmailForm() {
 
   // email may come from query param (after redirect from register page)
   const emailFromQuery = params.get("email") ?? "";
+  const requestedCallback = params.get("callbackUrl");
+  const callbackUrl = requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
+    ? requestedCallback
+    : null;
   const [email] = useState(emailFromQuery);
 
   // ---- verify OTP state
@@ -56,10 +60,14 @@ export default function VerifyEmailForm() {
   // Redirect on successful verification
   useEffect(() => {
     if (verifyState.success) {
-      const timer = setTimeout(() => router.push("/login?verified=true"), 1500);
+      const timer = setTimeout(() => {
+        const next = new URLSearchParams({ verified: "true" });
+        if (callbackUrl) next.set("callbackUrl", callbackUrl);
+        router.push(`/login?${next.toString()}`);
+      }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [verifyState.success, router]);
+  }, [verifyState.success, router, callbackUrl]);
 
   // Start cooldown timer after resend
   useEffect(() => {

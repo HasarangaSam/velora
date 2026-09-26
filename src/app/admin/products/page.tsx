@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
+import ProductRowActions from "@/components/admin/ProductRowActions";
 
 export default async function AdminProductsPage() {
   let user;
@@ -156,12 +157,7 @@ export default async function AdminProductsPage() {
                         </td>
 
                         <td className="px-6 py-4">
-                          <Link
-                            href={`/admin/products/${product.id}`}
-                            className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                          >
-                            Edit
-                          </Link>
+                          <ProductRowActions productId={product.id} />
                         </td>
                       </tr>
                     );

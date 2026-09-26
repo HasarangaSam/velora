@@ -87,7 +87,10 @@ export async function POST(request: Request) {
 
   if (statusCode === "2") {
     try {
-      const newlyPaid = await prisma.$transaction(
+      let newlyPaid = false;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          newlyPaid = await prisma.$transaction(
         async (tx) => {
           const currentPayment = await tx.payment.findUnique({
             where: {
@@ -227,6 +230,12 @@ export async function POST(request: Request) {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         },
       );
+          break;
+        } catch (error) {
+          const isSerializationConflict = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+          if (!isSerializationConflict || attempt === 3) throw error;
+        }
+      }
 
       if (newlyPaid) {
         const confirmedOrder = await prisma.order.findUnique({
@@ -304,10 +313,8 @@ export async function POST(request: Request) {
   }
 
   if (statusCode === "-1" || statusCode === "-2" || statusCode === "-3") {
-    await prisma.payment.update({
-      where: {
-        id: order.payment.id,
-      },
+    await prisma.payment.updateMany({
+      where: { id: order.payment.id, status: { not: "PAID" } },
       data: {
         status: "FAILED",
         providerId: paymentId,
@@ -319,10 +326,8 @@ export async function POST(request: Request) {
   }
 
   if (statusCode === "0") {
-    await prisma.payment.update({
-      where: {
-        id: order.payment.id,
-      },
+    await prisma.payment.updateMany({
+      where: { id: order.payment.id, status: { not: "PAID" } },
       data: {
         status: "PENDING",
         providerId: paymentId,

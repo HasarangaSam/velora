@@ -12,8 +12,9 @@ type CheckoutCalculation = {
 export async function calculateOrderTotals(
   userId: string,
   couponCode?: string,
+  buyNow?: { variantId: string; quantity: number },
 ): Promise<CheckoutCalculation> {
-  const cart = await prisma.cart.findUnique({
+  const cart = buyNow ? null : await prisma.cart.findUnique({
     where: {
       userId,
     },
@@ -42,13 +43,22 @@ export async function calculateOrderTotals(
     },
   });
 
-  if (!cart || cart.items.length === 0) {
+  const buyNowVariant = buyNow ? await prisma.productVariant.findUnique({
+    where: { id: buyNow.variantId },
+    include: { product: { select: { id: true, name: true, isActive: true } } },
+  }) : null;
+
+  const items = buyNow && buyNowVariant
+    ? [{ productId: buyNowVariant.productId, quantity: buyNow.quantity, product: buyNowVariant.product, variant: buyNowVariant }]
+    : cart?.items ?? [];
+
+  if (items.length === 0) {
     throw new Error("CART_EMPTY");
   }
 
   let subtotal = 0;
 
-  for (const item of cart.items) {
+  for (const item of items) {
     if (!item.product.isActive) {
       throw new Error(`PRODUCT_UNAVAILABLE:${item.product.name}`);
     }
@@ -116,6 +126,14 @@ export async function calculateOrderTotals(
       if (userUsageCount >= coupon.perUserLimit) {
         throw new Error("COUPON_USER_LIMIT_REACHED");
       }
+    }
+
+    if (coupon.code === "WELCOME500") {
+      const previousPaidOrder = await prisma.order.findFirst({
+        where: { userId, paymentStatus: "PAID" },
+        select: { id: true },
+      });
+      if (previousPaidOrder) throw new Error("WELCOME500_FIRST_ORDER_ONLY");
     }
 
     discount = calculateCouponDiscount(subtotal, {

@@ -125,13 +125,15 @@ export default async function AdminLayout({
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between">
           <span className="font-bold text-lg text-blue-600">Velora Admin</span>
-          <NotificationBell />
-          <Link
-            href="/"
-            className="text-xs font-semibold text-slate-600 hover:text-blue-600"
-          >
-            Store Front
-          </Link>
+          <div className="flex items-center gap-5">
+            <NotificationBell />
+            <Link
+              href="/"
+              className="text-xs font-semibold text-slate-600 hover:text-blue-600"
+            >
+              Store Front
+            </Link>
+          </div>
         </header>
 
         <div className="flex-1 p-6 md:p-10">{children}</div>

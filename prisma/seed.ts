@@ -430,13 +430,21 @@ async function main() {
 
   await prisma.coupon.upsert({
     where: { code: "WELCOME500" },
-    update: {},
+    update: {
+      discountType: "FIXED",
+      discountValue: 500,
+      minimumOrderValue: 3000,
+      maximumDiscount: null,
+      usageLimit: null,
+      perUserLimit: 1,
+      status: "ACTIVE",
+    },
     create: {
       code: "WELCOME500",
       discountType: "FIXED",
       discountValue: 500,
       minimumOrderValue: 3000,
-      usageLimit: 200,
+      usageLimit: null,
       perUserLimit: 1,
       status: "ACTIVE",
     },

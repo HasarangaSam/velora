@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Check, Minus, Plus, ShoppingCart } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Check, Minus, Plus, ShoppingCart } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store";
 
@@ -29,6 +30,7 @@ export default function ProductPurchase({
   image,
   variants,
 }: ProductPurchaseProps) {
+  const router = useRouter();
   const { status } = useSession();
 
   const addGuestItem = useCartStore((state) => state.addItem);
@@ -41,6 +43,7 @@ export default function ProductPurchase({
 
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [isBuyingNow, setIsBuyingNow] = useState(false);
   const [message, setMessage] = useState("");
   const [addedSuccess, setAddedSuccess] = useState(false);
 
@@ -154,40 +157,62 @@ export default function ProductPurchase({
     }
   }
 
+  function handleBuyNow() {
+    if (!selectedVariant) {
+      setMessage("Please select an available size and colour.");
+      setAddedSuccess(false);
+      return;
+    }
+    const checkoutUrl = `/checkout?buyNowVariantId=${encodeURIComponent(selectedVariant.id)}&quantity=${quantity}`;
+    setIsBuyingNow(true);
+    setMessage("");
+    if (status === "authenticated") {
+      router.push(checkoutUrl);
+    } else {
+      router.push(`/login?callbackUrl=${encodeURIComponent(checkoutUrl)}`);
+    }
+  }
+
   const price = selectedVariant?.price ?? variants[0]?.price ?? "0.00";
   const stock = selectedVariant?.stock ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="mt-7 space-y-6 border-t border-stone-200 pt-6">
       <div>
-        <p className="text-2xl font-semibold text-slate-900">
-          LKR {Number(price).toLocaleString("en-LK")}
+        <p className="text-2xl font-semibold tracking-tight text-stone-950">
+          LKR {Number(price).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
+        <p className="mt-1 text-xs text-stone-500">Taxes included · Shipping calculated at checkout</p>
       </div>
 
-      <div>
-        <p className="mb-3 text-sm font-medium text-slate-900">Size</p>
+      {availableSizes.length === 1 && availableSizes[0] === "One Size" ? (
+        <p className="text-sm text-stone-600">One size · no size selection needed</p>
+      ) : (
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">Choose size</p>
 
-        <div className="flex flex-wrap gap-2">
-          {availableSizes.map((size) => (
-            <button
-              key={size}
-              type="button"
-              onClick={() => handleSizeChange(size)}
-              className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
-                selectedSize === size
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-blue-500"
-              }`}
-            >
-              {size}
-            </button>
-          ))}
+          <div className="flex flex-wrap gap-2">
+            {availableSizes.map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => handleSizeChange(size)}
+                className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
+                  selectedSize === size
+                    ? "border-stone-950 bg-stone-950 text-white"
+                    : "border-stone-300 bg-white text-stone-700 hover:border-stone-900"
+                }`}
+                aria-pressed={selectedSize === size}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
-        <p className="mb-3 text-sm font-medium text-slate-900">Colour</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">Choose colour</p>
 
         <div className="flex flex-wrap gap-2">
           {availableColours.map((colour) => {
@@ -201,11 +226,12 @@ export default function ProductPurchase({
                 onClick={() => handleColourChange(colour)}
                 className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
                   selectedColour === colour
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : isAvailable
-                      ? "border-slate-300 bg-white text-slate-700 hover:border-blue-500"
-                      : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                }`}
+                  ? "border-stone-950 bg-stone-950 text-white"
+                  : isAvailable
+                    ? "border-stone-300 bg-white text-stone-700 hover:border-stone-900"
+                    : "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
+              }`}
+              aria-pressed={selectedColour === colour}
               >
                 {colour}
               </button>
@@ -215,18 +241,18 @@ export default function ProductPurchase({
       </div>
 
       {selectedVariant && (
-        <p className="text-sm text-slate-500">{stock} available</p>
+        <p className="text-xs text-stone-500">{stock} available</p>
       )}
 
       <div>
-        <p className="mb-3 text-sm font-medium text-slate-900">Quantity</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">Quantity</p>
 
-        <div className="flex w-fit items-center rounded-md border border-slate-300">
+        <div className="flex w-fit items-center rounded-lg border border-stone-300">
           <button
             type="button"
             onClick={() => setQuantity((current) => Math.max(1, current - 1))}
             disabled={quantity <= 1}
-            className="p-2 text-slate-600 disabled:opacity-40"
+            className="p-2.5 text-stone-600 transition hover:text-stone-950 disabled:opacity-40"
           >
             <Minus size={16} />
           </button>
@@ -241,24 +267,33 @@ export default function ProductPurchase({
               setQuantity((current) => Math.min(stock, current + 1))
             }
             disabled={!selectedVariant || quantity >= stock}
-            className="p-2 text-slate-600 disabled:opacity-40"
+            className="p-2.5 text-stone-600 transition hover:text-stone-950 disabled:opacity-40"
           >
             <Plus size={16} />
           </button>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleAddToCart}
-        disabled={
-          status === "loading" || isAdding || !selectedVariant || stock <= 0
-        }
-        className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-      >
-        <ShoppingCart size={18} />
-        {isAdding ? "Adding..." : "Add to Cart"}
-      </button>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          disabled={status === "loading" || isAdding || isBuyingNow || !selectedVariant || stock <= 0}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+        >
+          <ShoppingCart size={18} />
+          {isAdding ? "Adding..." : "Add to Cart"}
+        </button>
+        <button
+          type="button"
+          onClick={handleBuyNow}
+          disabled={status === "loading" || isAdding || isBuyingNow || !selectedVariant || stock <= 0}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900 transition hover:border-stone-900 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isBuyingNow ? "Taking you to checkout…" : "Buy Now"}
+          {!isBuyingNow && <ArrowRight size={17} />}
+        </button>
+      </div>
 
       {message && (
         <div

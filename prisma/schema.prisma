@@ -261,6 +261,8 @@ model Address {
 model Order {
   id            String        @id @default(cuid())
   orderNumber   String        @unique
+  checkoutRequestKey  String? @unique
+  checkoutRequestHash String?
   userId        String
   addressId     String?
   status        OrderStatus   @default(PENDING)
