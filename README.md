@@ -115,6 +115,10 @@ Velora uses a **hybrid client-server cart architecture** ensuring zero friction 
    - If stock is insufficient: Quantities are automatically capped at maximum available stock.
    - If variant or product was disabled/deleted: The item is removed and customer notified.
 4. **Server-Authoritative Pricing**: The browser **never** provides line item prices or order totals. All calculations fetch active variant prices directly from the database.
+5. **Idempotent Sync Guard**: Because Zustand persists cart state to `localStorage`, a naive implementation would re-merge guest items into the database on every page refresh after login — doubling quantities. `CartSync` prevents this with a `sessionStorage` flag (`velora-cart-synced`):
+   - **On first login**: guest items are synced to the DB and the flag is set **before** updating the store.
+   - **On subsequent refreshes**: if the flag is present, the merge path is skipped entirely and only a clean DB load is performed.
+   - **On logout**: the flag is removed so the next login can sync fresh guest items correctly.
 
 ---
 
