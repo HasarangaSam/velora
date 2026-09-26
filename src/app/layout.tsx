@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import AuthSessionProvider from "@/components/auth/SessionProvider";
 import CartSync from "@/components/shop/CartSync";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
+const inter = localFont({
+  src: "../../public/fonts/Inter-Variable.ttf",
+  display: "swap",
+  weight: "100 900",
 });
 
 export const metadata: Metadata = {
