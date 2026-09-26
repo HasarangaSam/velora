@@ -217,7 +217,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `SMTP_HOST` | Verification, reset, and receipt email | Defaults to `smtp.gmail.com`. |
 | `SMTP_PORT` | SMTP | Defaults to `465`; port 465 enables TLS. |
 | `SMTP_USER`, `SMTP_PASSWORD` | SMTP authentication | The code also accepts legacy `AUTH_EMAIL_USER` and `AUTH_EMAIL_PASSWORD`. |
-| `SMTP_FROM` | Email sender display address | Optional; otherwise a default Velora sender is used. |
+| `SMTP_FROM` | Email sender address | Optional; the configured address is used with the display name `Velora` on every email. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth | Optional; configure both with a Google OAuth application. |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Admin image management | Required to upload or manage hosted product images. |
 | `PAYHERE_SANDBOX` | PayHere environment | Set to `true` to use the sandbox checkout URL; otherwise the live URL is selected. |

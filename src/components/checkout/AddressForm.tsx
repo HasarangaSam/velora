@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { SRI_LANKAN_DISTRICTS } from "@/lib/sri-lankan-districts";
 import {
   createAddress,
   updateAddress,
@@ -155,12 +156,21 @@ export default function AddressForm({
             District
           </label>
 
-          <input
+          <select
             name="district"
             defaultValue={address?.district ?? ""}
             required
             className="w-full rounded-md border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
-          />
+          >
+            <option value="" disabled>
+              Select district
+            </option>
+            {SRI_LANKAN_DISTRICTS.map((district) => (
+              <option key={district} value={district}>
+                {district}
+              </option>
+            ))}
+          </select>
           {state.errors?.district && (
             <p className="mt-1 text-xs text-red-600">{state.errors.district[0]}</p>
           )}

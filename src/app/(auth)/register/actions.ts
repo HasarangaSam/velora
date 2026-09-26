@@ -35,6 +35,10 @@ const registerSchema = z.object({
     .string()
     .min(8, "Password must be at least 8 characters.")
     .max(100, "Password must be under 100 characters."),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match.",
+  path: ["confirmPassword"],
 });
 
 function generateOtp(): string {
@@ -62,8 +66,9 @@ export async function registerUser(
     const name = formData.get("name");
     const email = formData.get("email");
     const password = formData.get("password");
+    const confirmPassword = formData.get("confirmPassword");
 
-    const result = registerSchema.safeParse({ name, email, password });
+    const result = registerSchema.safeParse({ name, email, password, confirmPassword });
 
     if (!result.success) {
       return {

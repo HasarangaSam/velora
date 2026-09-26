@@ -54,7 +54,7 @@ export async function saveProductReview(
       select: { id: true },
     });
 
-    await prisma.productReview.upsert({
+    const savedReview = await prisma.productReview.upsert({
       where: { userId_productId: { userId: user.id, productId } },
       create: {
         userId: user.id,
@@ -72,18 +72,19 @@ export async function saveProductReview(
         status: "PENDING",
         verifiedPurchase: true,
       },
+      select: { id: true },
     });
 
-    if (!existing) {
-      try {
-        await notifyAdmins({
-          title: "New product review",
-          message: `A customer reviewed ${product.name}.`,
-          href: "/admin/reviews",
-        });
-      } catch (notificationError) {
-        console.error("Could not create new-review admin notification:", notificationError);
-      }
+    try {
+      await notifyAdmins({
+        title: existing ? "Updated product review" : "New product review",
+        message: existing
+          ? `A customer updated their review for ${product.name}.`
+          : `A customer reviewed ${product.name}.`,
+        href: `/admin/reviews?reviewId=${savedReview.id}`,
+      });
+    } catch (notificationError) {
+      console.error("Could not create review admin notification:", notificationError);
     }
 
     revalidatePath(`/products/${product.slug}`);
@@ -112,6 +113,19 @@ export async function deleteProductReview(reviewId: string): Promise<ProductRevi
     if (!review) return { ...emptyState, message: "Review not found." };
 
     await prisma.productReview.delete({ where: { id: parsedId.data } });
+
+    try {
+      await prisma.notification.updateMany({
+        where: {
+          readAt: null,
+          href: { contains: parsedId.data },
+        },
+        data: { readAt: new Date() },
+      });
+    } catch (notifErr) {
+      console.error("Could not mark review notifications read on delete:", notifErr);
+    }
+
     revalidatePath(`/products/${review.product.slug}`);
     revalidatePath("/account/reviews");
     revalidatePath("/admin/reviews");

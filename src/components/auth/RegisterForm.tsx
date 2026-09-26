@@ -38,6 +38,7 @@ export default function RegisterForm() {
     ? requestedCallback
     : null;
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [state, formAction] = useActionState(registerUser, initialState);
 
   useEffect(() => {
@@ -165,6 +166,47 @@ export default function RegisterForm() {
             {state.errors?.password && (
               <p className="mt-1 text-xs text-red-600">
                 {state.errors.password[0]}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="mb-2 block text-sm font-medium text-slate-700"
+            >
+              Confirm password
+            </label>
+
+            <div className="relative">
+              <Lock
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className="w-full rounded-lg border border-slate-300 py-3 pl-10 pr-12 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                placeholder="Re-enter your password"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((current) => !current)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {state.errors?.confirmPassword && (
+              <p className="mt-1 text-xs text-red-600">
+                {state.errors.confirmPassword[0]}
               </p>
             )}
           </div>

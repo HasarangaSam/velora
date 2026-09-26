@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db/prisma";
 import {
   LayoutDashboard,
   Package,
@@ -13,6 +14,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import NotificationBell from "@/components/layout/NotificationBell";
+import LogoutButton from "@/components/auth/LogoutButton";
 
 export default async function AdminLayout({
   children,
@@ -28,6 +30,11 @@ export default async function AdminLayout({
   if (session.user.role !== "ADMIN") {
     redirect("/account");
   }
+
+  const [unprocessedOrdersCount, pendingReviewsCount] = await Promise.all([
+    prisma.order.count({ where: { status: "CONFIRMED" } }),
+    prisma.productReview.count({ where: { status: "PENDING" } }),
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -72,10 +79,20 @@ export default async function AdminLayout({
 
           <Link
             href="/admin/orders"
-            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
+            className="flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition group"
           >
-            <ShoppingBag size={18} />
-            Orders
+            <div className="flex items-center gap-3">
+              <ShoppingBag size={18} />
+              <span>Orders</span>
+            </div>
+            {unprocessedOrdersCount > 0 && (
+              <span
+                title={`${unprocessedOrdersCount} confirmed orders awaiting processing`}
+                className="inline-flex items-center justify-center rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-xs"
+              >
+                {unprocessedOrdersCount}
+              </span>
+            )}
           </Link>
 
           <Link
@@ -96,10 +113,20 @@ export default async function AdminLayout({
 
           <Link
             href="/admin/reviews"
-            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
+            className="flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition group"
           >
-            <MessageSquareText size={18} />
-            Product Reviews
+            <div className="flex items-center gap-3">
+              <MessageSquareText size={18} />
+              <span>Product Reviews</span>
+            </div>
+            {pendingReviewsCount > 0 && (
+              <span
+                title={`${pendingReviewsCount} reviews awaiting moderation`}
+                className="inline-flex items-center justify-center rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white"
+              >
+                {pendingReviewsCount}
+              </span>
+            )}
           </Link>
         </nav>
 
@@ -118,6 +145,10 @@ export default async function AdminLayout({
             <ArrowLeft size={16} />
             Return to Store
           </Link>
+
+          <div className="mt-2">
+            <LogoutButton />
+          </div>
         </div>
       </aside>
 

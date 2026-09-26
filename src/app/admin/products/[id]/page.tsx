@@ -100,7 +100,7 @@ export default async function ProductEditPage({
   }));
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
+    <main className="min-w-0">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

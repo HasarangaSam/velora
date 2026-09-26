@@ -79,7 +79,7 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
+    <main className="min-w-0">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>

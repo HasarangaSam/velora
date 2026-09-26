@@ -45,6 +45,9 @@ export default function WishlistButton({
         return;
       }
       setMessage(result.message);
+      if (typeof result.count === "number") {
+        window.dispatchEvent(new CustomEvent("velora:wishlist-count", { detail: result.count }));
+      }
       router.refresh();
     });
   }

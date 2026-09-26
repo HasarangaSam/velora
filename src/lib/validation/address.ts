@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SRI_LANKAN_DISTRICTS } from "@/lib/sri-lankan-districts";
 
 export const addressSchema = z.object({
   fullName: z.string().trim().min(2).max(100),
@@ -11,7 +12,10 @@ export const addressSchema = z.object({
   addressLine1: z.string().trim().min(3).max(200),
   addressLine2: z.string().trim().max(200).optional(),
   city: z.string().trim().min(2).max(100),
-  district: z.string().trim().min(2).max(100),
+  district: z.string().trim().refine(
+    (district) => (SRI_LANKAN_DISTRICTS as readonly string[]).includes(district),
+    { message: "Select a Sri Lankan district." },
+  ),
   postalCode: z
     .string()
     .trim()

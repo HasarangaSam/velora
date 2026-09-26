@@ -67,7 +67,11 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
   return formatted;
 }
 
-async function getCategoryProductImage(categorySlug: string, subCategorySlug: string) {
+async function getCategoryProductImage(
+  categorySlug: string,
+  subCategorySlug: string,
+  oldestFirst = false,
+) {
   const product = await prisma.product.findFirst({
     where: {
       isActive: true,
@@ -75,11 +79,9 @@ async function getCategoryProductImage(categorySlug: string, subCategorySlug: st
       subCategory: { slug: subCategorySlug },
       images: { some: {} },
     },
-    orderBy: [
-      { isFeatured: "desc" },
-      { createdAt: "desc" },
-      { slug: "asc" },
-    ],
+    orderBy: oldestFirst
+      ? [{ createdAt: "asc" }, { slug: "asc" }]
+      : [{ isFeatured: "desc" }, { createdAt: "desc" }, { slug: "asc" }],
     select: {
       images: {
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
@@ -99,7 +101,7 @@ export default async function HomePage() {
   const [featuredProducts, menImage, womenImage, kidsImage, sareeImage] = await Promise.all([
     getFeaturedProducts(),
     getCategoryProductImage("men", "men-shirts"),
-    getCategoryProductImage("women", "women-dresses"),
+    getCategoryProductImage("women", "women-dresses", true),
     getCategoryProductImage("kids", "kids-t-shirts"),
     getCategoryProductImage("women", "women-sarees"),
   ]);

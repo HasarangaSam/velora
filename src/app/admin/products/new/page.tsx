@@ -18,7 +18,7 @@ export default async function NewProductPage() {
   });
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
+    <main className="min-w-0">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8">
           <p className="text-sm font-medium text-blue-600">Products</p>

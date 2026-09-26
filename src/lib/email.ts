@@ -19,8 +19,15 @@ function getTransporter() {
   });
 }
 
-const FROM_EMAIL =
-  process.env.SMTP_FROM || `"Velora Fashion" <${process.env.SMTP_USER || "noreply@velora.lk"}>`;
+const configuredFrom = process.env.SMTP_FROM?.trim();
+const configuredAddress = configuredFrom?.match(/<([^<>]+)>/)?.[1]?.trim();
+const senderAddress =
+  configuredAddress ||
+  (configuredFrom?.includes("@") ? configuredFrom : undefined) ||
+  process.env.SMTP_USER ||
+  process.env.AUTH_EMAIL_USER ||
+  "noreply@velora.lk";
+const FROM_EMAIL = { name: "Velora", address: senderAddress };
 
 export async function sendVerificationOtpEmail({
   to,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, Check, CheckCheck } from "lucide-react";
 
 type NotificationItem = {
@@ -20,6 +20,7 @@ export default function NotificationBell() {
   const [busy, setBusy] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
 
   const refresh = useCallback(async () => {
     try {
@@ -39,13 +40,20 @@ export default function NotificationBell() {
       if (document.visibilityState === "visible") void refresh();
     }, 45_000);
     const handleFocus = () => void refresh();
+    const handleCustomRefresh = () => void refresh();
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("notifications:refresh", handleCustomRefresh);
     return () => {
       window.clearTimeout(initialRefresh);
       window.clearInterval(timer);
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("notifications:refresh", handleCustomRefresh);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    void refresh();
+  }, [pathname, refresh]);
 
   useEffect(() => {
     function closeOnOutsideClick(event: PointerEvent) {
@@ -73,6 +81,7 @@ export default function NotificationBell() {
     if (!item.readAt) await markRead(item.id);
     setOpen(false);
     router.push(item.href);
+    router.refresh();
   }
 
   return (

@@ -2,12 +2,38 @@ import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { OrderStatus } from "@/generated/prisma/enums";
+import { Clock } from "lucide-react";
+import QuickProcessButton from "@/components/admin/QuickProcessButton";
 
 type OrdersPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const PAGE_SIZE = 10;
+
+function getOrderAge(createdAt: Date) {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 60) {
+    return {
+      text: `${Math.max(1, diffMins)}m ago`,
+      isUrgent: false,
+    };
+  }
+  if (diffHours < 24) {
+    return {
+      text: `${diffHours}h ago`,
+      isUrgent: diffHours >= 12,
+    };
+  }
+  return {
+    text: `${diffDays}d ago`,
+    isUrgent: true,
+  };
+}
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -42,22 +68,33 @@ export default async function AdminOrdersPage({
       : {}),
   };
 
-  const totalOrders = await prisma.order.count({ where });
+  const [totalOrders, orders, statusCountsRaw] = await Promise.all([
+    prisma.order.count({ where }),
+    prisma.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (safeRequestedPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        user: {
+          select: { name: true, email: true },
+        },
+        items: true,
+        payment: true,
+      },
+    }),
+    prisma.order.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+  ]);
+
   const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
   const page = Math.min(safeRequestedPage, totalPages);
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-    include: {
-      user: {
-        select: { name: true, email: true },
-      },
-      items: true,
-      payment: true,
-    },
-  });
+
+  const countMap = new Map(statusCountsRaw.map((s) => [s.status, s._count._all]));
+  const allOrdersCount = statusCountsRaw.reduce((sum, s) => sum + s._count._all, 0);
+  const confirmedUnprocessedCount = countMap.get("CONFIRMED") ?? 0;
 
   function pageHref(targetPage: number) {
     const nextParams = new URLSearchParams();
@@ -68,7 +105,15 @@ export default async function AdminOrdersPage({
     return `/admin/orders${query ? `?${query}` : ""}`;
   }
 
-  const statuses = ["ALL", "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+  const tabs = [
+    { key: "ALL", label: "All Orders", count: allOrdersCount, isNeedsProcessing: false },
+    { key: "CONFIRMED", label: "Needs Processing", count: confirmedUnprocessedCount, isNeedsProcessing: true },
+    { key: "PROCESSING", label: "Processing", count: countMap.get("PROCESSING") ?? 0, isNeedsProcessing: false },
+    { key: "SHIPPED", label: "Shipped", count: countMap.get("SHIPPED") ?? 0, isNeedsProcessing: false },
+    { key: "DELIVERED", label: "Delivered", count: countMap.get("DELIVERED") ?? 0, isNeedsProcessing: false },
+    { key: "PENDING", label: "Pending Payment", count: countMap.get("PENDING") ?? 0, isNeedsProcessing: false },
+    { key: "CANCELLED", label: "Cancelled", count: countMap.get("CANCELLED") ?? 0, isNeedsProcessing: false },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -79,31 +124,47 @@ export default async function AdminOrdersPage({
           </span>
           <h1 className="text-3xl font-bold text-slate-900 mt-1">Orders</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage customer orders, track payments, and update delivery status.
+            Manage customer orders, track payments, and pack & dispatch orders.
           </p>
         </div>
       </div>
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-        {statuses.map((s) => {
-          const isActive = (s === "ALL" && !validStatus) || validStatus === s;
+        {tabs.map((tab) => {
+          const isActive = (tab.key === "ALL" && !validStatus) || validStatus === tab.key;
           const tabParams = new URLSearchParams();
-          if (s !== "ALL") tabParams.set("status", s);
+          if (tab.key !== "ALL") tabParams.set("status", tab.key);
           if (search) tabParams.set("search", search);
           const tabQuery = tabParams.toString();
           const href = `/admin/orders${tabQuery ? `?${tabQuery}` : ""}`;
+
           return (
             <Link
-              key={s}
+              key={tab.key}
               href={href}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                 isActive
-                  ? "bg-blue-600 text-white"
+                  ? tab.isNeedsProcessing
+                    ? "bg-amber-500 text-white shadow-xs"
+                    : "bg-blue-600 text-white shadow-xs"
+                  : tab.isNeedsProcessing && tab.count > 0
+                  ? "bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100"
                   : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
-              {s}
+              <span>{tab.label}</span>
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : tab.isNeedsProcessing && tab.count > 0
+                    ? "bg-amber-500 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {tab.count}
+              </span>
             </Link>
           );
         })}
@@ -148,9 +209,18 @@ export default async function AdminOrdersPage({
                     (sum, item) => sum + item.quantity,
                     0,
                   );
+                  const isConfirmed = order.status === "CONFIRMED";
+                  const age = getOrderAge(order.createdAt);
 
                   return (
-                    <tr key={order.id} className="hover:bg-slate-50 transition">
+                    <tr
+                      key={order.id}
+                      className={`transition ${
+                        isConfirmed
+                          ? "bg-amber-50/30 hover:bg-amber-50/60"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
                       <td className="px-6 py-4 font-mono font-medium text-slate-900 text-xs">
                         {order.orderNumber}
                       </td>
@@ -189,27 +259,52 @@ export default async function AdminOrdersPage({
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            order.status === "CONFIRMED" || order.status === "DELIVERED"
-                              ? "bg-blue-50 text-blue-700"
-                              : order.status === "PROCESSING" || order.status === "SHIPPED"
-                              ? "bg-indigo-50 text-indigo-700"
-                              : order.status === "CANCELLED"
-                              ? "bg-slate-100 text-slate-600"
-                              : "bg-amber-50 text-amber-700"
-                          }`}
-                        >
-                          {order.status}
-                        </span>
+                        {isConfirmed ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+                              <Clock size={11} className="text-amber-600 animate-pulse" />
+                              Needs Processing
+                            </span>
+                            <p
+                              className={`text-[11px] font-medium ${
+                                age.isUrgent ? "text-rose-600 font-bold" : "text-slate-500"
+                              }`}
+                            >
+                              Confirmed {age.text}
+                            </p>
+                          </div>
+                        ) : (
+                          <span
+                            className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              order.status === "DELIVERED"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : order.status === "PROCESSING" || order.status === "SHIPPED"
+                                ? "bg-indigo-50 text-indigo-700"
+                                : order.status === "CANCELLED"
+                                ? "bg-slate-100 text-slate-600"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <Link
-                          href={`/admin/orders/${order.id}`}
-                          className="text-xs font-semibold text-blue-600 hover:text-blue-700"
-                        >
-                          View Details →
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          {isConfirmed && (
+                            <QuickProcessButton
+                              orderId={order.id}
+                              orderNumber={order.orderNumber}
+                              size="sm"
+                            />
+                          )}
+                          <Link
+                            href={`/admin/orders/${order.id}`}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
+                          >
+                            Details →
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );

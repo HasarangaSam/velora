@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store";
 import LogoutButton from "@/components/auth/LogoutButton";
@@ -36,6 +36,39 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [wishlistCount, setWishlistCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!session?.user?.id) {
+      setWishlistCount(0);
+      return;
+    }
+
+    fetch("/api/wishlist/count", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : { count: 0 })
+      .then((data: { count?: number }) => {
+        if (!cancelled) setWishlistCount(data.count ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setWishlistCount(0);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    function handleWishlistCountChange(event: Event) {
+      const count = (event as CustomEvent<number>).detail;
+      if (typeof count === "number") setWishlistCount(count);
+    }
+
+    window.addEventListener("velora:wishlist-count", handleWishlistCountChange);
+    return () => window.removeEventListener("velora:wishlist-count", handleWishlistCountChange);
+  }, []);
 
   if (pathname?.startsWith("/admin")) {
     return null;
@@ -196,11 +229,16 @@ export default function Navbar() {
             <Link
               href="/account/wishlist"
               aria-current={pathname === "/account/wishlist" ? "page" : undefined}
-              aria-label="View wishlist"
+              aria-label={wishlistCount > 0 ? `View wishlist, ${wishlistCount} ${wishlistCount === 1 ? "item" : "items"}` : "View wishlist"}
               title="Wishlist"
               className={`relative p-2 transition ${pathname === "/account/wishlist" ? "text-rose-600" : "text-slate-700 hover:text-rose-600"}`}
             >
               <Heart size={21} strokeWidth={1.8} />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold leading-none text-white shadow-sm">
+                  {wishlistCount > 99 ? "99+" : wishlistCount}
+                </span>
+              )}
             </Link>
 
             {/* Cart Button */}

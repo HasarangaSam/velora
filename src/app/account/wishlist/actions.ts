@@ -9,6 +9,7 @@ export type WishlistActionResult = {
   success: boolean;
   isSaved: boolean;
   message: string;
+  count?: number;
 };
 
 export async function setWishlistItem(productId: string, isSaved: boolean): Promise<WishlistActionResult> {
@@ -41,7 +42,11 @@ export async function setWishlistItem(productId: string, isSaved: boolean): Prom
     const product = await prisma.product.findUnique({ where: { id: parsed.data.productId }, select: { slug: true } });
     if (product) revalidatePath(`/products/${product.slug}`);
 
-    return { success: true, isSaved: parsed.data.isSaved, message: parsed.data.isSaved ? "Saved to your wishlist." : "Removed from your wishlist." };
+    const count = await prisma.wishlistItem.count({
+      where: { userId: user.id, product: { isActive: true } },
+    });
+
+    return { success: true, isSaved: parsed.data.isSaved, count, message: parsed.data.isSaved ? "Saved to your wishlist." : "Removed from your wishlist." };
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return { success: false, isSaved: !isSaved, message: "Sign in to save items to your wishlist." };

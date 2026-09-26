@@ -68,9 +68,11 @@ function ProductFiltersForm({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(searchParamsString);
-      if (search.trim()) params.set("search", search.trim());
+      const nextSearch = search.trim();
+      const currentSearch = params.get("search") ?? "";
+      if (nextSearch) params.set("search", nextSearch);
       else params.delete("search");
-      params.delete("page");
+      if (nextSearch !== currentSearch) params.delete("page");
       const next = params.toString();
       if (next !== searchParamsString) router.replace(`/shop${next ? `?${next}` : ""}`, { scroll: false });
     }, 280);
