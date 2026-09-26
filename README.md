@@ -1,209 +1,290 @@
 # Velora
 
-Velora is a full-stack fashion storefront for browsing clothing, choosing product variants, checking out, and tracking orders. It also includes account features and an admin area for maintaining the catalog and order workflow. The project is built with Next.js, React, TypeScript, PostgreSQL, and Prisma.
+**A full-stack fashion commerce application built with Next.js, TypeScript, PostgreSQL, and Prisma.** Velora brings together a product storefront, customer accounts, inventory-aware carts, checkout and payment handling, and an admin workspace in one application.
 
-## Project overview
+The project is designed to demonstrate end-to-end product engineering: relational data modelling, server-rendered pages, API and Server Action boundaries, authentication and role checks, validation, payment notifications, automated checks, and containerized deployment.
 
-### Customer storefront
+## What the application does
 
-- Browse active products, search, sort, and filter by collection and subcategory.
-- Open product pages with product images, size and colour variants, price, and stock information.
-- Add variants to a persistent cart. Signed-in customers can sync cart contents across sessions.
-- Save delivery addresses, apply eligible coupon codes, and complete checkout through PayHere.
-- View order history, order details, and payment/order status in the customer account. After payment is confirmed, the customer receives an emailed order receipt with item variants, quantities, totals, discounts, shipping, and delivery address.
-- Receive in-app order status notifications from the notification bell in the store navigation.
-- Browse a responsive home page with collection entry points, selected products, and Unsplash photography.
+### Shopping experience
+
+- Browse active products by category and subcategory, search by product name or description, filter by price, and sort by name, newest, or price.
+- View product galleries, available sizes and colours, per-variant prices and stock, ratings, and approved reviews. Reviews can be submitted by customers with a paid order for the product and require admin approval before public display.
+- Add products to a browser-persisted guest cart. After sign-in, the cart can be synchronized with the user's database cart; signed-in cart operations check current product availability and inventory.
+- Check out from the cart or use **Buy now** for one selected variant.
+- Save delivery addresses, apply eligible coupons, review shipping and discount totals, and continue to PayHere checkout.
+- View order history and order details. The PayHere notification flow updates payment and order state and sends a receipt email after successful payment.
+- Save products to a personal wishlist and receive account notifications about order activity.
 
 ### Accounts
 
-- Register with an email address and password, then verify the account with an emailed one-time code.
-- Sign in with credentials or Google OAuth when Google credentials are configured.
-- Request a password reset using the emailed reset link/code.
-- Manage delivery addresses and review orders.
+- Register with an email and password, then verify the email with a time-limited one-time code.
+- Sign in with verified credentials or optionally connect Google OAuth.
+- Request a password reset by email and invalidate existing sessions when a password is changed.
+- Manage profile details, delivery addresses, orders, reviews, and wishlist items.
 
-### Admin (`/admin`)
+### Admin workspace
 
-- Create and update products, prices, inventory, and size/colour variants.
-- Select several product images during product creation. After the product is saved, the images upload to Cloudinary; the product editor can later set the primary image, reorder, add, or remove images.
-- Organize products with a top-level category and an optional subcategory.
-- Update order status (which emails and notifies the customer), manage users and roles, and create or manage coupon codes.
-- See individual in-app alerts for new orders and newly submitted product reviews in the admin header.
+The `/admin` area is restricted to users with the `ADMIN` role. It includes a dashboard and workflows to:
 
-## Main technologies
+- Create, edit, activate, feature, and delete products and their size/colour variants.
+- Organize products with parent categories and subcategories.
+- Upload, reorder, set the primary image for, and remove product images using Cloudinary.
+- Review and moderate product reviews.
+- Manage orders and order status, coupons, customer accounts, and user roles.
+- Receive in-app notifications about new orders and submitted reviews.
+
+## Application routes
+
+| Area | Routes |
+| --- | --- |
+| Storefront | `/`, `/shop`, `/shop/products/[slug]`; `/products/[slug]` is also available as a product-detail route. |
+| Cart and checkout | `/cart`, `/checkout`, `/checkout/payment`, `/checkout/success`, `/checkout/cancelled` |
+| Authentication | `/register`, `/verify-email`, `/login`, `/forgot-password`, `/reset-password` |
+| Customer account | `/account`, `/account/profile`, `/account/addresses`, `/account/orders`, `/account/orders/[id]`, `/account/reviews`, `/account/wishlist` |
+| Administration | `/admin`, `/admin/products`, `/admin/categories`, `/admin/orders`, `/admin/coupons`, `/admin/users`, `/admin/reviews` and their detail/create pages |
+
+### API surface
+
+| Endpoint | Methods | Responsibility |
+| --- | --- | --- |
+| `/api/auth/[...nextauth]` | `GET`, `POST` | Auth.js handlers. |
+| `/api/search` | `GET` | Product suggestions for the storefront search input. |
+| `/api/cart`, `/api/cart/[itemId]`, `/api/cart/sync` | `GET`, `POST`, `PATCH`, `DELETE` | Authenticated cart reads and changes, guest-cart reconciliation, and Buy now quote data. |
+| `/api/addresses`, `/api/addresses/[id]` | `GET`, `POST`, `PATCH`, `DELETE` | Authenticated delivery-address management. |
+| `/api/orders` | `GET`, `POST` | Create an idempotent checkout order and read the signed-in user's order history. |
+| `/api/orders/[id]` | `GET` | Read an order detail belonging to the signed-in user. |
+| `/api/notifications` | `GET`, `PATCH` | Read notifications and mark one or all as read. |
+| `/api/admin/products/*`, `/api/admin/categories/*` | `GET`, `POST`, `PATCH`, `DELETE` | Admin-only catalog and category APIs, including variants and image management. |
+| `/api/payments/payhere/notify` | `POST` | Validate and process PayHere server notifications. |
+
+## Engineering highlights
+
+- **Server and client composition:** Next.js App Router Server Components handle data-oriented pages; Client Components provide interactive forms, cart state, search suggestions, galleries, and admin controls.
+- **Clear mutation boundaries:** Server Actions handle form-oriented mutations and revalidation. Route Handlers expose cart, address, order, search, admin, notification, authentication, and payment-notification APIs.
+- **Runtime validation:** Zod schemas validate cart, checkout, catalog, address, product, category, and variant inputs. Validation failures are handled before data reaches persistence logic.
+- **Relational domain model:** PostgreSQL and Prisma model accounts, hierarchical categories, products, images, variants, carts, addresses, orders, payments, coupons, reviews, wishlists, verification records, and notifications.
+- **Checkout correctness:** Prices and totals are calculated on the server. Order creation uses an idempotency key and request fingerprint to make retries safe. Orders retain shipping and line-item snapshots so later catalog or address edits do not rewrite historical order details.
+- **Payment verification:** The PayHere notification handler verifies the provider signature and checks the merchant, order, currency, and amount before applying payment changes. Payment confirmation, coupon usage, and inventory updates use database transactions with serializable isolation and conflict handling.
+- **Authorization and account safety:** Shared `requireUser` and `requireAdmin` helpers protect user and admin operations. Passwords are hashed with bcrypt; verification codes and reset requests are time-limited; password changes increment a session version so older sessions are rejected.
+- **Cache and throttling:** Redis backs catalog caching and rate-limit counters. Cache reads and rate-limit checks are designed to fail open when Redis is unavailable, keeping the storefront available while reducing the protection those features can provide during an outage.
+- **Build and delivery:** The build command generates the Prisma client before compiling Next.js. Next.js standalone output is used by a multi-stage Docker image. GitHub Actions runs lint, unit tests, and a production build on pushes and pull requests.
+
+## Technology
 
 | Area | Technology |
 | --- | --- |
-| Web application | Next.js 16 App Router, React 19, TypeScript |
-| Styling and icons | Tailwind CSS 4, Lucide React |
-| Database | PostgreSQL |
-| Data access | Prisma ORM 7 with the PostgreSQL driver adapter |
-| Authentication | Auth.js / NextAuth, Prisma adapter, credentials and optional Google OAuth |
-| Validation | Zod |
-| Client cart state | Zustand with persisted browser storage |
-| Cache and rate limits | Redis via ioredis; cache reads fail open when Redis is unavailable |
-| Product image storage | Cloudinary |
+| Application | Next.js 16 App Router, React 19, TypeScript |
+| UI | Tailwind CSS 4, Lucide React, locally bundled Inter variable font |
+| Validation | Zod 4 |
+| Authentication | Auth.js / NextAuth, Prisma adapter, credentials, optional Google OAuth |
+| Database | PostgreSQL, Prisma ORM 7, PostgreSQL driver adapter |
+| Client cart | Zustand with browser `localStorage` persistence |
+| Cache and rate limiting | Redis with ioredis |
+| Product images | Cloudinary |
 | Email | Nodemailer over SMTP |
-| Online payment | PayHere checkout and server notification handling |
+| Payments | PayHere, including sandbox configuration |
+| Unit testing | Vitest |
+| Code quality and delivery | ESLint 9, GitHub Actions, Docker, Next.js standalone output |
 
-## Application structure
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser[Browser\nNext.js pages and client UI] --> App[Next.js App Router\nServer Components, Server Actions, Route Handlers]
+  App --> Validation[Zod validation]
+  Validation --> Domain[Application services\ncatalog, cart, checkout, orders]
+  Domain --> Prisma[Prisma Client]
+  Prisma --> PostgreSQL[(PostgreSQL)]
+  Domain --> Redis[(Redis\ncache and rate limits)]
+  App --> Auth[Auth.js\nJWT sessions and role checks]
+  App --> Cloudinary[Cloudinary\nproduct images]
+  App --> SMTP[SMTP\nverification, reset, receipts]
+  App --> PayHere[PayHere\nhosted payment and notify callback]
+```
+
+### Important request flows
+
+**Cart and checkout:** Guest items live in Zustand/localStorage. When a user signs in, `CartSync` posts those items to the server, which checks active products and available variants before reconciling with the database cart. At checkout, the server recalculates prices, stock, shipping, and coupon eligibility; the browser never supplies authoritative totals.
+
+**Order idempotency:** The checkout client reuses a persisted idempotency key for the same request. The orders endpoint hashes the normalized request and associates it with the key, preventing duplicate orders from ordinary retries and rejecting reuse of a key for a different checkout payload.
+
+**Payment confirmation:** The customer is sent to PayHere's hosted checkout. The server-side notification endpoint verifies the callback signature and order details, then applies payment, inventory, coupon, and order-state changes transactionally. The browser return page is not treated as payment proof.
+
+**Catalog reads:** Catalog query parameters are schema-validated. Product listings are paginated in groups of 12 and cached in Redis for 60 seconds; if Redis is unavailable, the application falls back to database reads.
+
+## Data model
+
+The Prisma schema is the source of truth for the relational model. Its main entities are:
+
+| Domain | Models | Notes |
+| --- | --- | --- |
+| Identity | `User`, `Account`, `VerificationCode`, `PasswordResetToken` | Credentials and OAuth accounts, email verification, and password reset records. |
+| Catalog | `Category`, `Product`, `ProductImage`, `ProductVariant` | Categories can have parent/child relationships. Price and stock belong to variants. Images retain Cloudinary public IDs and gallery ordering. |
+| Shopping | `Cart`, `CartItem`, `WishlistItem`, `Address` | One persistent cart per user; uniqueness constraints prevent duplicate variants in a cart and duplicate wishlist entries. |
+| Orders and payments | `Order`, `OrderItem`, `Payment`, `Coupon`, `CouponUsage` | Orders snapshot delivery and item details; database uniqueness constraints support payment and checkout idempotency. |
+| Engagement | `ProductReview`, `Notification` | Reviews have moderation status and verified-purchase metadata; notifications belong to a recipient. |
+
+Database changes are tracked under [`prisma/migrations`](prisma/migrations). Notable migrations add hierarchical categories, wishlists, moderated product reviews, notifications, welcome-coupon rules, shipping snapshots/payment constraints, and checkout idempotency.
+
+## Project layout
 
 ```text
-src/
-├── app/
-│   ├── (auth)/                 # Registration, verification, sign-in, password reset
-│   ├── (shop)/                 # Shop, products, cart, checkout, payment results
-│   ├── account/                # Customer profile, addresses, orders, reviews
-│   ├── admin/                  # Catalog, categories, orders, users, coupons
-│   └── api/                    # Auth, cart/order endpoints, image upload, payment webhook
-├── components/
-│   ├── account/                # Address and order account UI
-│   ├── admin/                  # Admin forms, image manager, and table actions
-│   ├── auth/                   # Registration and account access forms
-│   ├── checkout/               # Address selection and checkout UI
-│   ├── layout/                 # Store navigation, footer, and notification bell
-│   └── shop/                   # Catalog, product, and cart UI
-├── lib/                        # Prisma, Redis, email, payment, cart, and validation helpers
-├── store/                      # Client-side Zustand stores
-└── types/                      # Shared TypeScript types
-
-prisma/
-├── schema.prisma               # PostgreSQL data model
-├── migrations/                 # Database migration history, including persistent notifications
-└── seed.ts                     # Local demo users, categories, products, and coupons
+.
+├── .github/workflows/ci.yml       # GitHub Actions quality workflow
+├── Dockerfile                     # Multi-stage production image
+├── public/fonts/                  # Bundled Inter font and SIL OFL license
+├── prisma/
+│   ├── schema.prisma              # Data model and generated-client output
+│   ├── migrations/                # Versioned PostgreSQL migrations
+│   └── seed.ts                    # Local demo data
+├── src/
+│   ├── app/
+│   │   ├── (auth)/                # Registration, verification, login, reset
+│   │   ├── (shop)/                # Storefront, product, cart, checkout pages
+│   │   ├── account/               # Profile, addresses, orders, reviews, wishlist
+│   │   ├── admin/                 # Admin pages and Server Actions
+│   │   └── api/                   # Route Handlers and provider callbacks
+│   ├── components/                # Account, admin, auth, checkout, layout, shop UI
+│   ├── lib/                       # Database, auth, catalog, cart, payment, email,
+│   │                              # cache, validation, and domain helpers
+│   ├── store/                     # Zustand cart store
+│   └── types/                     # Shared application types
+├── vitest.config.ts               # Vitest configuration
+└── next.config.ts                 # Next.js standalone output and image hosts
 ```
 
-The App Router pages render the main customer and admin experiences. Mutations use Server Actions where form state and revalidation are useful, and Route Handlers for operations such as cart/order APIs, image uploads, and PayHere notifications. Shared Zod schemas validate product, category, and checkout data. Prisma models users, accounts, addresses, products, variants, images, carts, orders, payments, coupons, reviews, and user notifications.
+## Run locally
 
-Product categories are hierarchical: a category may have child categories, while a product stores its main category and an optional subcategory. Inventory and price belong to individual product variants. Product image URLs and Cloudinary public IDs are stored separately from product records, allowing the admin image manager to change gallery order and primary-image selection.
+### Prerequisites
 
-## Local setup
-
-## CI and Docker
-
-GitHub Actions runs ESLint, the Vitest unit tests, and a production build on every push and pull request. The workflow uses placeholder database and authentication values only for the build; it does not connect to a real database or deploy the app.
-
-The Dockerfile uses separate dependency, build, and runtime stages. Next.js standalone output keeps the production image smaller by copying only the app runtime files. Build an image with:
-
-```bash
-docker build -t velora .
-```
-
-Run it with the required runtime configuration (use your own values):
-
-```bash
-docker run --rm -p 3000:3000 \
-  -e DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/velora" \
-  -e AUTH_SECRET="your-long-random-secret" \
-  velora
-```
-
-The container expects PostgreSQL and any optional services such as Redis to be reachable at the URLs supplied through environment variables. Apply Prisma migrations to the database before using the app. Do not put production secrets in the image or commit them to the repository.
-
-### Requirements
-
-- Node.js and npm
+- Node.js 22 and npm
 - PostgreSQL
-- Redis is recommended for catalog caching and rate limiting; the application defaults to `redis://localhost:6379` and handles Redis outages without failing catalog reads.
-- Cloudinary, SMTP, Google OAuth, and PayHere credentials are needed only for the corresponding integrations.
+- Optional: Redis, SMTP credentials, Cloudinary credentials, PayHere credentials, and Google OAuth credentials, depending on which integrations you want to exercise
 
-### Install and configure
+### 1. Install dependencies
 
-1. Install packages:
+```bash
+npm install
+```
 
-   ```bash
-   npm install
-   ```
+### 2. Configure environment variables
 
-2. Create a `.env` file in the project root. The file is ignored by Git. Add the variables needed for your local integrations:
+Create a `.env` file in the project root. It is ignored by Git. A minimal local configuration is:
 
-   ```dotenv
-   DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/velora"
-   AUTH_SECRET="replace-with-a-long-random-secret"
-   NEXT_PUBLIC_APP_URL="http://localhost:3000"
-   REDIS_URL="redis://localhost:6379"
+```dotenv
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/velora?schema=public"
+AUTH_SECRET="replace-with-a-long-random-secret"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+REDIS_URL="redis://localhost:6379"
+```
 
-   # Optional Google sign-in
-   GOOGLE_CLIENT_ID=""
-   GOOGLE_CLIENT_SECRET=""
+See [Configuration](#configuration) for the optional provider settings. The database must already exist and be reachable. Redis is optional for local browsing; the application uses the URL above by default and handles Redis failures by falling back for catalog reads and rate limits.
 
-   # Optional SMTP email delivery
-   SMTP_HOST="smtp.gmail.com"
-   SMTP_PORT="465"
-   SMTP_USER=""
-   SMTP_PASSWORD=""
-   SMTP_FROM="Velora <noreply@example.com>"
+### 3. Apply migrations and optionally seed demo data
 
-   # Required for admin product image uploads
-   CLOUDINARY_CLOUD_NAME=""
-   CLOUDINARY_API_KEY=""
-   CLOUDINARY_API_SECRET=""
+```bash
+npx prisma migrate deploy
+npx prisma generate
+npm run seed
+```
 
-   # Required to accept PayHere payments
-   PAYHERE_MERCHANT_ID=""
-   PAYHERE_MERCHANT_SECRET=""
-   PAYHERE_SANDBOX="true"
-   PAYHERE_NOTIFY_URL="https://your-public-host/api/payments/payhere/notify"
-   ```
+The seed script inserts sample categories, products, a customer address, users, and coupons. It contains hard-coded development passwords and should only be run against an isolated local database. Seeded users are not automatically email-verified by the seed, so use the normal registration and verification flow when demonstrating sign-in. Do not use seed credentials or seed data in a shared or production environment.
 
-   Password reset URL generation also checks `NEXTAUTH_URL` as a fallback if `NEXT_PUBLIC_APP_URL` is not set. Email configuration accepts `AUTH_EMAIL_USER` and `AUTH_EMAIL_PASSWORD` as fallbacks for `SMTP_USER` and `SMTP_PASSWORD`.
+### 4. Start the development server
 
-3. Generate the Prisma client and create/update the local database schema:
-
-   ```bash
-   npx prisma generate
-   npx prisma migrate deploy
-   ```
-
-4. Optionally populate a local database with demo data:
-
-   ```bash
-   npm run seed
-   ```
-
-   The seed script creates demo accounts (`admin@velora.lk` / `admin123` and `customer@velora.lk` / `customer123`) along with catalog and coupon data. These are development credentials; change or remove them before using any shared environment, and do not run the demo seed against production data.
-
-5. Start the development server:
-
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-If SMTP is not configured or email delivery fails, verification codes and password reset links are logged by the server for local development. Treat those logs as sensitive and configure real SMTP delivery outside local development.
+## Configuration
 
-Order confirmation and order status emails use the same SMTP settings. A confirmation email is sent from the verified PayHere server notification after payment changes to `PAID`; returning to the browser success page alone does not confirm payment or trigger an email. PayHere must be able to reach the configured notification URL. The email contains the order number, purchased items and variants, quantities, subtotal, discount, shipping fee, paid total, and shipping address. Failed SMTP delivery is written to the server log.
+| Variable | Required for | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | App and Prisma | PostgreSQL connection string. Required for database access, migrations, seeding, and Prisma client generation. |
+| `AUTH_SECRET` | Authentication | Long, random secret used by Auth.js. Keep it out of source control. |
+| `NEXT_PUBLIC_APP_URL` | Absolute app links and PayHere return URLs | For local development, use `http://localhost:3000`. Set the public origin in deployed environments. |
+| `NEXTAUTH_URL` | Password-reset link fallback | The reset flow uses `NEXT_PUBLIC_APP_URL` first, then `NEXTAUTH_URL`, then localhost. |
+| `REDIS_URL` | Redis features | Defaults to `redis://localhost:6379`. Cache and rate-limit behavior falls back when Redis is unreachable. |
+| `SMTP_HOST` | Verification, reset, and receipt email | Defaults to `smtp.gmail.com`. |
+| `SMTP_PORT` | SMTP | Defaults to `465`; port 465 enables TLS. |
+| `SMTP_USER`, `SMTP_PASSWORD` | SMTP authentication | The code also accepts legacy `AUTH_EMAIL_USER` and `AUTH_EMAIL_PASSWORD`. |
+| `SMTP_FROM` | Email sender display address | Optional; otherwise a default Velora sender is used. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth | Optional; configure both with a Google OAuth application. |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Admin image management | Required to upload or manage hosted product images. |
+| `PAYHERE_SANDBOX` | PayHere environment | Set to `true` to use the sandbox checkout URL; otherwise the live URL is selected. |
+| `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET` | PayHere checkout and callback verification | Use credentials from the matching PayHere environment. |
+| `PAYHERE_NOTIFY_URL` | PayHere notifications | Publicly reachable callback URL for `/api/payments/payhere/notify`. |
 
-Checkout order creation uses an `Idempotency-Key` saved for the active browser checkout attempt. Repeating the same request returns the original order; reusing its key with different checkout details is rejected. PayHere success callbacks confirm payment, decrement stock, and consume coupon usage in one serializable transaction. Duplicate success callbacks do not repeat those effects, serialization conflicts are retried, and late failed or pending callbacks cannot downgrade a paid payment. Apply the `20260924170000_add_checkout_request_idempotency` migration before deploying this version.
-
-The notification bell reads the signed-in user’s notifications from the database and checks for updates on page focus and every 45 seconds while the page is visible. No socket server or separate notification service is required. New orders and new reviews notify each admin account; admin order status changes notify the affected customer.
-
-## Configuration notes
-
-- `PAYHERE_SANDBOX=true` sends checkout to PayHere’s sandbox. Set it to `false` only when using live merchant credentials and a publicly reachable notification URL.
-- The PayHere notification endpoint is `/api/payments/payhere/notify`. Configure the matching public URL in the PayHere merchant settings.
-- Apply schema changes with `npx prisma migrate deploy` before starting the app. This includes the notification table and checkout idempotency columns.
-- Customer order emails are sent only after PayHere’s signed payment callback confirms success. Keep SMTP credentials valid and set `SMTP_FROM` to an address permitted by the configured SMTP provider.
-- Product image uploads require valid Cloudinary credentials. Uploads are limited to 5 MB per image by the admin image endpoint.
-- `.env*`, generated Prisma output, build output, and dependencies are excluded from Git.
+Provider-backed flows need working credentials and callback URLs. The storefront and local code-quality workflow can be explored without configuring every optional provider, but email, OAuth, Cloudinary uploads, and real payment processing cannot be fully exercised without them.
 
 ## Useful commands
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Start the local Next.js development server |
-| `npm run build` | Build the application for production |
-| `npm run start` | Run the production build |
-| `npm run lint` | Run ESLint |
-| `npm run seed` | Add or update local demo data |
-| `npx prisma studio` | Inspect database records in Prisma Studio |
+| `npm run dev` | Start the Next.js development server. |
+| `npm run lint` | Run ESLint across the project. |
+| `npm test` | Run the Vitest suite once. |
+| `npm run build` | Generate the Prisma client, then create the optimized Next.js production build. |
+| `npm run start` | Serve a previously built production app. |
+| `npx prisma migrate deploy` | Apply committed migrations to the configured database. |
+| `npm run seed` | Add or update local demo records. |
 
-## Recent UI and workflow improvements
+## Tests
 
-- The home page uses a more editorial layout, Unsplash imagery, clearer collection cards, and a focused featured-products section.
-- Men, Women, and Kids navigation reflects the selected collection. The shop category filter narrows its options to the active collection and its subcategories.
-- Product cards and the shared footer use a calmer, more consistent visual system. The home page no longer advertises the coupon offer, and the footer no longer displays a PayHere sandbox verification badge.
-- Product creation accepts image selections in the initial form and uploads them after saving, instead of forcing admins to leave the creation flow to add the first images.
-- Shop price sorting orders products globally by their lowest in-stock variant price before paging. Search fields provide product suggestions while typing and can be cleared directly.
-- Customer and admin notification bells show unread counts, recent activity, and read controls. Admin alerts cover new orders and product reviews; customers are alerted when admins update order status.
-- Successful PayHere payments trigger a customer confirmation email containing the complete order and delivery summary. Admin order status changes also send customer email updates.
+Vitest currently covers the cart-validation schemas in `src/lib/validation/cart.test.ts`. The tests demonstrate valid input parsing, numeric-string coercion, invalid quantities, missing variant IDs, and the maximum synchronized-cart size. The suite uses the Node environment and does not need a database, browser, or external service.
+
+Run it with:
+
+```bash
+npm test
+```
+
+The current repository does not include browser end-to-end tests or a full integration-test suite for PostgreSQL, PayHere, SMTP, Redis, or Cloudinary.
+
+## Continuous integration
+
+GitHub Actions is configured in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). It runs on pushes and pull requests and performs these checks on Node.js 22:
+
+1. Install npm dependencies.
+2. Run ESLint.
+3. Run the Vitest unit tests.
+4. Build the production app with placeholder database and Auth.js environment values.
+
+The workflow does not deploy the application or start PostgreSQL, Redis, SMTP, or payment-provider services. Provider integrations and database-backed runtime behavior therefore need separate environment-level verification.
+
+## Docker
+
+The `Dockerfile` has dependency, builder, and runtime stages. The runtime stage uses Next.js standalone output and starts the generated `server.js`. The build stage uses placeholder environment values to build without embedding real credentials. Runtime secrets and service URLs must be supplied to the running container.
+
+Build the image:
+
+```bash
+docker build -t velora .
+```
+
+Run it with a reachable PostgreSQL database and a real runtime secret:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/velora?schema=public" \
+  -e AUTH_SECRET="your-long-random-secret" \
+  -e NEXT_PUBLIC_APP_URL="http://localhost:3000" \
+  velora
+```
+
+Apply migrations to the target database before using the app. The container does not run migrations automatically and does not bundle PostgreSQL, Redis, or provider services. When the database runs on the host machine, use a hostname reachable from the container (for example, `host.docker.internal` where supported) instead of `localhost` in `DATABASE_URL`.
+
+## Security and operational notes
+
+- Never commit `.env` files, API credentials, database passwords, or production secrets.
+- The demo seed includes hard-coded low-strength passwords. Keep seed data confined to a disposable local database; do not use those accounts in a shared environment.
+- Registration, OTP verification/resend, password reset, and order creation use Redis-backed rate limits. The current limiter intentionally fails open when Redis is unavailable, so production deployments should monitor Redis and consider whether that availability trade-off matches their threat model.
+- Configure HTTPS, production-grade secrets, SMTP, PayHere callbacks, and image-storage credentials before exposing a deployment.
+- The Docker image contains the application only. Database provisioning, migrations, backups, Redis availability, and provider setup belong to the deployment environment.
+
+## License and font attribution
+
+Inter is bundled locally from the [Google Fonts Inter family](https://github.com/google/fonts/tree/main/ofl/inter) so builds do not need to fetch the font from Google. The font is distributed under the [SIL Open Font License 1.1](public/fonts/OFL.txt); the license file is included with the font.

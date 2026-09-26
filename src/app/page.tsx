@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { connection } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getCache, setCache } from "@/lib/redis";
 import ProductCard from "@/components/shop/ProductCard";
@@ -65,6 +66,9 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
 }
 
 export default async function HomePage() {
+  // Featured products depend on live database data, so defer this query until
+  // a request instead of trying to execute it during a production build.
+  await connection();
   const featuredProducts = await getFeaturedProducts();
 
   return (
