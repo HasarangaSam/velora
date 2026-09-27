@@ -28,6 +28,8 @@ jobs:
 
       - name: Check TypeScript types
         run: npm run typecheck
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
 
       - name: Run lint
         run: npm run lint

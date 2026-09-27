@@ -33,6 +33,9 @@ export default function Navbar() {
     () => true,
     () => false,
   );
+  // Keep session-dependent markup identical until hydration completes. The
+  // client session may be available before the server-rendered session is.
+  const activeUser = mounted ? session?.user : undefined;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -174,9 +177,9 @@ export default function Navbar() {
 
           {/* Actions: Account, Wishlist & Cart */}
           <div className="flex items-center gap-4">
-            {session?.user && <NotificationBell />}
+            {activeUser && <NotificationBell />}
             {/* User Account / Dropdown */}
-            {session?.user ? (
+            {activeUser ? (
               <div className="relative">
                 <button
                   type="button"
@@ -184,10 +187,10 @@ export default function Navbar() {
                   className="flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-blue-600 focus:outline-none py-1.5 px-2.5 rounded-lg hover:bg-slate-50 transition"
                 >
                   <div className="h-7 w-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs border border-blue-100">
-                    {session.user.name ? session.user.name[0].toUpperCase() : "U"}
+                    {activeUser.name ? activeUser.name[0].toUpperCase() : "U"}
                   </div>
                   <span className="hidden sm:inline max-w-[100px] truncate">
-                    {session.user.name?.split(" ")[0] ?? "Account"}
+                    {activeUser.name?.split(" ")[0] ?? "Account"}
                   </span>
                   <ChevronDown size={14} className="text-slate-400" />
                 </button>
@@ -200,11 +203,11 @@ export default function Navbar() {
                     <div className="px-4 py-2 border-b border-slate-100">
                       <p className="text-xs text-slate-400">Signed in as</p>
                       <p className="text-xs font-bold text-slate-900 truncate">
-                        {session.user.email}
+                        {activeUser.email}
                       </p>
                     </div>
 
-                    {session.user.role === "ADMIN" && (
+                    {activeUser.role === "ADMIN" && (
                       <Link
                         href="/admin"
                         className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition"
@@ -336,7 +339,7 @@ export default function Navbar() {
             </Link>
           </nav>
 
-          {!session?.user && (
+          {!activeUser && (
             <div className="pt-3 border-t border-slate-100 flex gap-2">
               <Link
                 href="/login"
