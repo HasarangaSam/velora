@@ -67,7 +67,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
     id: variant.id,
     size: variant.size,
     colour: variant.colour,
-    price: variant.price.toString(),
     stock: variant.stock,
   }));
 
@@ -153,11 +152,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 productName={product.name}
                 slug={product.slug}
                 image={product.images[0]?.url ?? null}
+                price={product.price.toString()}
+                salePrice={product.salePrice?.toString() ?? null}
                 variants={product.variants.map((variant) => ({
                   id: variant.id,
                   size: variant.size,
                   colour: variant.colour,
-                  price: variant.price.toString(),
                   stock: variant.stock,
                 }))}
               />

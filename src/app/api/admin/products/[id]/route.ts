@@ -177,6 +177,8 @@ export async function PATCH(request: Request, context: RouteContext) {
           subCategoryId: result.data.subCategoryId ?? null,
           isActive: result.data.isActive,
           isFeatured: result.data.isFeatured,
+          price: result.data.price,
+          salePrice: result.data.salePrice,
         },
       });
 
@@ -189,7 +191,6 @@ export async function PATCH(request: Request, context: RouteContext) {
             data: {
               size: variant.size,
               colour: variant.colour,
-              price: variant.price,
               stock: variant.stock,
             },
           });
@@ -199,7 +200,6 @@ export async function PATCH(request: Request, context: RouteContext) {
               productId: id,
               size: variant.size,
               colour: variant.colour,
-              price: variant.price,
               stock: variant.stock,
             },
           });

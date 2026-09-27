@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { calculateCouponDiscount, calculateShipping } from "@/lib/checkout";
+import { getCurrentPrice } from "@/lib/product-pricing";
 
 type CheckoutCalculation = {
   subtotal: number;
@@ -26,6 +27,8 @@ export async function calculateOrderTotals(
               id: true,
               name: true,
               isActive: true,
+              price: true,
+              salePrice: true,
             },
           },
           variant: {
@@ -34,7 +37,6 @@ export async function calculateOrderTotals(
               productId: true,
               size: true,
               colour: true,
-              price: true,
               stock: true,
             },
           },
@@ -45,7 +47,7 @@ export async function calculateOrderTotals(
 
   const buyNowVariant = buyNow ? await prisma.productVariant.findUnique({
     where: { id: buyNow.variantId },
-    include: { product: { select: { id: true, name: true, isActive: true } } },
+    include: { product: { select: { id: true, name: true, isActive: true, price: true, salePrice: true } } },
   }) : null;
 
   const items = buyNow && buyNowVariant
@@ -71,7 +73,7 @@ export async function calculateOrderTotals(
       throw new Error(`INSUFFICIENT_STOCK:${item.product.name}`);
     }
 
-    subtotal += Number(item.variant.price) * item.quantity;
+    subtotal += getCurrentPrice(item.product) * item.quantity;
   }
 
   let discount = 0;

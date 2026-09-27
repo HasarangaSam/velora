@@ -82,11 +82,12 @@ export default async function ProductEditPage({
     subCategoryId: product.subCategoryId,
     isActive: product.isActive,
     isFeatured: product.isFeatured,
+    price: product.price.toString(),
+    salePrice: product.salePrice?.toString() ?? "",
     variants: product.variants.map((variant) => ({
       id: variant.id,
       size: variant.size,
       colour: variant.colour,
-      price: variant.price.toString(),
       stock: variant.stock,
     })),
   };

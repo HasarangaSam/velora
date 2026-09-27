@@ -63,6 +63,8 @@ export async function createProduct(
       categoryId: formData.get("categoryId"),
       isActive: formData.get("isActive") === "true",
       isFeatured: formData.get("isFeatured") === "true",
+      price: formData.get("price"),
+      salePrice: formData.get("salePrice"),
     });
 
     if (!productResult.success) {
@@ -139,11 +141,12 @@ export async function createProduct(
         subCategoryId: subCategoryId ?? null,
         isActive: productResult.data.isActive,
         isFeatured: productResult.data.isFeatured,
+        price: productResult.data.price,
+        salePrice: productResult.data.salePrice,
         variants: {
           create: variantsResult.data.map((variant) => ({
             size: variant.size,
             colour: variant.colour,
-            price: variant.price,
             stock: variant.stock,
           })),
         },
@@ -233,6 +236,8 @@ export async function updateProduct(
       categoryId: formData.get("categoryId"),
       isActive: formData.get("isActive") === "true",
       isFeatured: formData.get("isFeatured") === "true",
+      price: formData.get("price"),
+      salePrice: formData.get("salePrice"),
     });
 
     if (!productResult.success) {
@@ -339,6 +344,8 @@ export async function updateProduct(
           subCategoryId: subCategoryId ?? null,
           isActive: productResult.data.isActive,
           isFeatured: productResult.data.isFeatured,
+          price: productResult.data.price,
+          salePrice: productResult.data.salePrice,
         },
       });
 
@@ -349,7 +356,6 @@ export async function updateProduct(
             data: {
               size: variant.size,
               colour: variant.colour,
-              price: variant.price,
               stock: variant.stock,
             },
           });
@@ -359,7 +365,6 @@ export async function updateProduct(
               productId,
               size: variant.size,
               colour: variant.colour,
-              price: variant.price,
               stock: variant.stock,
             },
           });

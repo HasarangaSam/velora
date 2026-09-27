@@ -212,6 +212,7 @@ async function main() {
       categoryId: menCategory.id,
       subCategoryId: menTShirts.id,
       isFeatured: true,
+      price: 2990,
       images: [
         {
           url: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80",
@@ -220,12 +221,12 @@ async function main() {
         },
       ],
       variants: [
-        { size: "S", colour: "Black", price: 2990, stock: 15 },
-        { size: "M", colour: "Black", price: 2990, stock: 25 },
-        { size: "L", colour: "Black", price: 2990, stock: 20 },
-        { size: "M", colour: "White", price: 2990, stock: 18 },
-        { size: "L", colour: "White", price: 2990, stock: 12 },
-        { size: "M", colour: "Blue", price: 2990, stock: 10 },
+        { size: "S", colour: "Black", stock: 15 },
+        { size: "M", colour: "Black", stock: 25 },
+        { size: "L", colour: "Black", stock: 20 },
+        { size: "M", colour: "White", stock: 18 },
+        { size: "L", colour: "White", stock: 12 },
+        { size: "M", colour: "Blue", stock: 10 },
       ],
     },
     {
@@ -235,6 +236,7 @@ async function main() {
       categoryId: menCategory.id,
       subCategoryId: menShirts.id,
       isFeatured: true,
+      price: 4490,
       images: [
         {
           url: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=80",
@@ -243,10 +245,10 @@ async function main() {
         },
       ],
       variants: [
-        { size: "M", colour: "White", price: 4490, stock: 12 },
-        { size: "L", colour: "White", price: 4490, stock: 14 },
-        { size: "M", colour: "Beige", price: 4490, stock: 8 },
-        { size: "L", colour: "Beige", price: 4490, stock: 10 },
+        { size: "M", colour: "White", stock: 12 },
+        { size: "L", colour: "White", stock: 14 },
+        { size: "M", colour: "Beige", stock: 8 },
+        { size: "L", colour: "Beige", stock: 10 },
       ],
     },
     {
@@ -256,6 +258,7 @@ async function main() {
       categoryId: menCategory.id,
       subCategoryId: menChinos.id,
       isFeatured: false,
+      price: 4990,
       images: [
         {
           url: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&w=800&q=80",
@@ -264,10 +267,10 @@ async function main() {
         },
       ],
       variants: [
-        { size: "30", colour: "Beige", price: 4990, stock: 10 },
-        { size: "32", colour: "Beige", price: 4990, stock: 15 },
-        { size: "34", colour: "Beige", price: 4990, stock: 12 },
-        { size: "32", colour: "Black", price: 4990, stock: 10 },
+        { size: "30", colour: "Beige", stock: 10 },
+        { size: "32", colour: "Beige", stock: 15 },
+        { size: "34", colour: "Beige", stock: 12 },
+        { size: "32", colour: "Black", stock: 10 },
       ],
     },
 
@@ -279,6 +282,8 @@ async function main() {
       categoryId: womenCategory.id,
       subCategoryId: womenDresses.id,
       isFeatured: true,
+      price: 5490,
+      salePrice: 4990,
       images: [
         {
           url: "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=800&q=80",
@@ -287,11 +292,11 @@ async function main() {
         },
       ],
       variants: [
-        { size: "XS", colour: "White", price: 5490, stock: 8 },
-        { size: "S", colour: "White", price: 5490, stock: 14 },
-        { size: "M", colour: "White", price: 5490, stock: 16 },
-        { size: "S", colour: "Pink", price: 5490, stock: 10 },
-        { size: "M", colour: "Pink", price: 5490, stock: 12 },
+        { size: "XS", colour: "White", stock: 8 },
+        { size: "S", colour: "White", stock: 14 },
+        { size: "M", colour: "White", stock: 16 },
+        { size: "S", colour: "Pink", stock: 10 },
+        { size: "M", colour: "Pink", stock: 12 },
       ],
     },
     {
@@ -301,6 +306,7 @@ async function main() {
       categoryId: womenCategory.id,
       subCategoryId: womenTops.id,
       isFeatured: true,
+      price: 2190,
       images: [
         {
           url: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=800&q=80",
@@ -309,10 +315,10 @@ async function main() {
         },
       ],
       variants: [
-        { size: "S", colour: "Black", price: 2190, stock: 20 },
-        { size: "M", colour: "Black", price: 2190, stock: 20 },
-        { size: "S", colour: "White", price: 2190, stock: 15 },
-        { size: "M", colour: "White", price: 2190, stock: 18 },
+        { size: "S", colour: "Black", stock: 20 },
+        { size: "M", colour: "Black", stock: 20 },
+        { size: "S", colour: "White", stock: 15 },
+        { size: "M", colour: "White", stock: 18 },
       ],
     },
     {
@@ -322,6 +328,7 @@ async function main() {
       categoryId: womenCategory.id,
       subCategoryId: womenTrousers.id,
       isFeatured: false,
+      price: 4790,
       images: [
         {
           url: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?auto=format&fit=crop&w=800&q=80",
@@ -330,9 +337,9 @@ async function main() {
         },
       ],
       variants: [
-        { size: "S", colour: "Beige", price: 4790, stock: 10 },
-        { size: "M", colour: "Beige", price: 4790, stock: 12 },
-        { size: "L", colour: "Beige", price: 4790, stock: 8 },
+        { size: "S", colour: "Beige", stock: 10 },
+        { size: "M", colour: "Beige", stock: 12 },
+        { size: "L", colour: "Beige", stock: 8 },
       ],
     },
     {
@@ -342,6 +349,7 @@ async function main() {
       categoryId: womenCategory.id,
       subCategoryId: womenSarees.id,
       isFeatured: true,
+      price: 14990,
       images: [
         {
           url: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80",
@@ -350,9 +358,9 @@ async function main() {
         },
       ],
       variants: [
-        { size: "Free Size", colour: "Red", price: 14990, stock: 6 },
-        { size: "Free Size", colour: "Green", price: 14990, stock: 5 },
-        { size: "Free Size", colour: "Gold", price: 15990, stock: 4 },
+        { size: "Free Size", colour: "Red", stock: 6 },
+        { size: "Free Size", colour: "Green", stock: 5 },
+        { size: "Free Size", colour: "Gold", stock: 4 },
       ],
     },
     {
@@ -362,6 +370,7 @@ async function main() {
       categoryId: womenCategory.id,
       subCategoryId: womenSkirts.id,
       isFeatured: false,
+      price: 3890,
       images: [
         {
           url: "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&w=800&q=80",
@@ -370,9 +379,9 @@ async function main() {
         },
       ],
       variants: [
-        { size: "S", colour: "Floral Blue", price: 3890, stock: 12 },
-        { size: "M", colour: "Floral Blue", price: 3890, stock: 15 },
-        { size: "L", colour: "Floral Blue", price: 3890, stock: 8 },
+        { size: "S", colour: "Floral Blue", stock: 12 },
+        { size: "M", colour: "Floral Blue", stock: 15 },
+        { size: "L", colour: "Floral Blue", stock: 8 },
       ],
     },
 
@@ -384,6 +393,7 @@ async function main() {
       categoryId: kidsCategory.id,
       subCategoryId: kidsTShirts.id,
       isFeatured: true,
+      price: 1890,
       images: [
         {
           url: "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=800&q=80",
@@ -392,10 +402,10 @@ async function main() {
         },
       ],
       variants: [
-        { size: "3-4Y", colour: "Blue", price: 1890, stock: 15 },
-        { size: "5-6Y", colour: "Blue", price: 1890, stock: 15 },
-        { size: "7-8Y", colour: "Blue", price: 1890, stock: 12 },
-        { size: "5-6Y", colour: "White", price: 1890, stock: 10 },
+        { size: "3-4Y", colour: "Blue", stock: 15 },
+        { size: "5-6Y", colour: "Blue", stock: 15 },
+        { size: "7-8Y", colour: "Blue", stock: 12 },
+        { size: "5-6Y", colour: "White", stock: 10 },
       ],
     },
     {
@@ -405,6 +415,7 @@ async function main() {
       categoryId: kidsCategory.id,
       subCategoryId: kidsShorts.id,
       isFeatured: false,
+      price: 2190,
       images: [
         {
           url: "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?auto=format&fit=crop&w=800&q=80",
@@ -413,9 +424,9 @@ async function main() {
         },
       ],
       variants: [
-        { size: "3-4Y", colour: "Beige", price: 2190, stock: 10 },
-        { size: "5-6Y", colour: "Beige", price: 2190, stock: 12 },
-        { size: "7-8Y", colour: "Beige", price: 2190, stock: 10 },
+        { size: "3-4Y", colour: "Beige", stock: 10 },
+        { size: "5-6Y", colour: "Beige", stock: 12 },
+        { size: "7-8Y", colour: "Beige", stock: 10 },
       ],
     },
   ];
@@ -490,6 +501,8 @@ async function main() {
           subCategoryId: p.subCategoryId,
           isFeatured: p.isFeatured,
           isActive: true,
+          price: p.price,
+          salePrice: p.salePrice ?? null,
           images: {
             create: galleryBySlug[p.slug].map((url, i) => ({
               url,
@@ -502,7 +515,6 @@ async function main() {
             create: p.variants.map((v) => ({
               size: v.size,
               colour: v.colour,
-              price: v.price,
               stock: v.stock,
             })),
           },

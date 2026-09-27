@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import Image from "next/image";
+import { getCurrentPrice } from "@/lib/product-pricing";
 
-type Suggestion = { name: string; slug: string; image: string | null; price: string | null };
+type Suggestion = { name: string; slug: string; image: string | null; price: string; salePrice: string | null };
 type Props = {
   value: string;
   onChange: (value: string) => void;
@@ -124,7 +125,7 @@ export default function ProductSearchInput({
                 {product.image && <Image src={product.image} alt="" width={40} height={48} className="h-full w-full object-cover" />}
               </div>
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800">{product.name}</span>
-              {product.price && <span className="shrink-0 text-xs text-stone-500">LKR {Number(product.price).toLocaleString()}</span>}
+              <span className="shrink-0 text-xs text-stone-500">LKR {getCurrentPrice(product).toLocaleString("en-LK")}</span>
             </Link>
           ))}
           {loading && <p className="px-4 py-3 text-xs text-stone-500">Searching…</p>}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
 import { getOrCreateCart, getUserCart } from "@/lib/cart";
 import { addToCartSchema } from "@/lib/validation/cart";
+import { getCurrentPrice } from "@/lib/product-pricing";
 
 export async function GET(request: Request) {
   try {
@@ -28,6 +29,8 @@ export async function GET(request: Request) {
               name: true,
               slug: true,
               isActive: true,
+              price: true,
+              salePrice: true,
               images: { where: { isPrimary: true }, take: 1, orderBy: { sortOrder: "asc" }, select: { url: true } },
             },
           },
@@ -40,7 +43,8 @@ export async function GET(request: Request) {
         return NextResponse.json({ message: "There is not enough stock for that quantity." }, { status: 409 });
       }
 
-      const subtotal = Number(variant.price) * parsed.data.quantity;
+      const currentPrice = getCurrentPrice(variant.product);
+      const subtotal = currentPrice * parsed.data.quantity;
       return NextResponse.json({
         items: [{
           productId: variant.productId,
@@ -50,7 +54,7 @@ export async function GET(request: Request) {
           image: variant.product.images[0]?.url ?? null,
           size: variant.size,
           colour: variant.colour,
-          price: variant.price.toString(),
+          price: currentPrice.toFixed(2),
           quantity: parsed.data.quantity,
           stock: variant.stock,
         }],

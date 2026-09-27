@@ -149,7 +149,7 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px] text-left">
+              <table className="w-full min-w-[900px] text-left">
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
                     <th className="px-6 py-4 text-sm font-semibold text-slate-700">
@@ -162,6 +162,10 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
 
                     <th className="px-6 py-4 text-sm font-semibold text-slate-700">
                       Variants
+                    </th>
+
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-700">
+                      Price
                     </th>
 
                     <th className="px-6 py-4 text-sm font-semibold text-slate-700">
@@ -215,6 +219,14 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
 
                         <td className="px-6 py-4 text-sm text-slate-600">
                           {product.variants.length}
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          {product.salePrice ? (
+                            <><span className="font-semibold text-rose-700">LKR {Number(product.salePrice).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span className="ml-2 text-xs text-slate-500 line-through">LKR {Number(product.price).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></>
+                          ) : (
+                            <span>LKR {Number(product.price).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          )}
                         </td>
 
                         <td className="px-6 py-4 text-sm text-slate-600">

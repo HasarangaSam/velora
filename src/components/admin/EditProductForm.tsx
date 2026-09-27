@@ -14,7 +14,6 @@ type Variant = {
   id?: string;
   size: string;
   colour: string;
-  price: string;
   stock: string;
 };
 
@@ -38,11 +37,12 @@ type Product = {
   subCategoryId?: string | null;
   isActive: boolean;
   isFeatured: boolean;
+  price: string;
+  salePrice: string;
   variants: {
     id: string;
     size: string;
     colour: string;
-    price: string;
     stock: number;
   }[];
 };
@@ -55,7 +55,6 @@ type EditProductFormProps = {
 const emptyVariant: Variant = {
   size: "M",
   colour: "Black",
-  price: "",
   stock: "0",
 };
 
@@ -87,6 +86,8 @@ export default function EditProductForm({
   );
   const [isActive, setIsActive] = useState(product.isActive);
   const [isFeatured, setIsFeatured] = useState(product.isFeatured);
+  const [price, setPrice] = useState(product.price);
+  const [salePrice, setSalePrice] = useState(product.salePrice);
 
   const subCategories =
     categories.find((c) => c.id === categoryId)?.children ?? [];
@@ -96,7 +97,6 @@ export default function EditProductForm({
       id: variant.id,
       size: variant.size,
       colour: variant.colour,
-      price: variant.price,
       stock: String(variant.stock),
     })),
   );
@@ -129,6 +129,8 @@ export default function EditProductForm({
       <input type="hidden" name="isActive" value={String(isActive)} />
       <input type="hidden" name="isFeatured" value={String(isFeatured)} />
       <input type="hidden" name="variants" value={JSON.stringify(variants)} />
+      <input type="hidden" name="price" value={price} />
+      <input type="hidden" name="salePrice" value={salePrice} />
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-slate-900">
@@ -137,6 +139,10 @@ export default function EditProductForm({
           <p className="mt-1 text-sm text-slate-500">
             Update the basic information for this product.
           </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-medium text-slate-700">Regular price (LKR)<input type="number" min="0.01" step="0.01" required value={price} onChange={(event) => setPrice(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5" /></label>
+          <label className="text-sm font-medium text-slate-700">Sale price (LKR, optional)<input type="number" min="0.01" step="0.01" value={salePrice} onChange={(event) => setSalePrice(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5" placeholder="Leave blank when not on sale" /></label>
         </div>
 
         <div className="space-y-5">
@@ -286,7 +292,7 @@ export default function EditProductForm({
               key={variant.id ?? `new-${index}`}
               className="rounded-xl border border-slate-200 bg-slate-50 p-4"
             >
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-700">
                     Size / fit
@@ -337,24 +343,6 @@ export default function EditProductForm({
                       </option>
                     ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Price (LKR)
-                  </label>
-
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={variant.price}
-                    onChange={(event) =>
-                      updateVariant(index, "price", event.target.value)
-                    }
-                    required
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
-                  />
                 </div>
 
                 <div>

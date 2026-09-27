@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { CartData, CartItemData } from "@/types/cart";
+import { getCurrentPrice } from "@/lib/product-pricing";
 
 export async function getOrCreateCart(userId: string) {
   return prisma.cart.upsert({
@@ -30,6 +31,8 @@ export async function getUserCart(userId: string): Promise<CartData> {
               name: true,
               slug: true,
               isActive: true,
+              price: true,
+              salePrice: true,
               images: {
                 where: {
                   isPrimary: true,
@@ -50,7 +53,6 @@ export async function getUserCart(userId: string): Promise<CartData> {
               productId: true,
               size: true,
               colour: true,
-              price: true,
               stock: true,
             },
           },
@@ -76,7 +78,7 @@ export async function getUserCart(userId: string): Promise<CartData> {
     image: item.product.images[0]?.url ?? null,
     size: item.variant.size,
     colour: item.variant.colour,
-    price: item.variant.price.toString(),
+    price: getCurrentPrice(item.product).toFixed(2),
     quantity: item.quantity,
     stock: item.variant.stock,
   }));

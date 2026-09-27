@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Minus, Plus, ShoppingCart } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store";
+import { getCurrentPrice, getDiscountPercent } from "@/lib/product-pricing";
 
 type ProductVariant = {
   id: string;
   size: string;
   colour: string;
-  price: string;
   stock: number;
 };
 
@@ -20,6 +20,8 @@ type ProductPurchaseProps = {
   productName: string;
   slug: string;
   image: string | null;
+  price: string;
+  salePrice: string | null;
   variants: ProductVariant[];
 };
 
@@ -28,6 +30,8 @@ export default function ProductPurchase({
   productName,
   slug,
   image,
+  price,
+  salePrice,
   variants,
 }: ProductPurchaseProps) {
   const router = useRouter();
@@ -141,7 +145,7 @@ export default function ProductPurchase({
           image,
           size: selectedVariant.size,
           colour: selectedVariant.colour,
-          price: selectedVariant.price,
+          price: String(getCurrentPrice({ price, salePrice })),
           quantity,
           stock: selectedVariant.stock,
         });
@@ -173,15 +177,14 @@ export default function ProductPurchase({
     }
   }
 
-  const price = selectedVariant?.price ?? variants[0]?.price ?? "0.00";
+  const currentPrice = getCurrentPrice({ price, salePrice });
+  const discountPercent = getDiscountPercent({ price, salePrice });
   const stock = selectedVariant?.stock ?? 0;
 
   return (
     <div className="mt-7 space-y-6 border-t border-stone-200 pt-6">
       <div>
-        <p className="text-2xl font-semibold tracking-tight text-stone-950">
-          LKR {Number(price).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </p>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className="text-2xl font-semibold tracking-tight text-stone-950">LKR {currentPrice.toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>{discountPercent !== null && <><span className="text-base text-stone-500 line-through">LKR {Number(price).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Save {discountPercent}%</span></>}</div>
         <p className="mt-1 text-xs text-stone-500">Taxes included · Shipping calculated at checkout</p>
       </div>
 

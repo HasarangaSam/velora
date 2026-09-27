@@ -21,12 +21,8 @@ export async function GET(request: Request) {
       name: true,
       slug: true,
       images: { where: { isPrimary: true }, take: 1, select: { url: true } },
-      variants: {
-        where: { stock: { gt: 0 } },
-        orderBy: { price: "asc" },
-        take: 1,
-        select: { price: true },
-      },
+      price: true,
+      salePrice: true,
     },
   });
 
@@ -35,7 +31,8 @@ export async function GET(request: Request) {
       name: product.name,
       slug: product.slug,
       image: product.images[0]?.url ?? null,
-      price: product.variants[0]?.price.toString() ?? null,
+      price: product.price.toString(),
+      salePrice: product.salePrice?.toString() ?? null,
     })),
   });
 }

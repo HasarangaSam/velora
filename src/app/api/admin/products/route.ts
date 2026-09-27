@@ -44,6 +44,8 @@ export async function POST(request: Request) {
       categoryId: body.categoryId,
       isActive: body.isActive ?? true,
       isFeatured: body.isFeatured ?? false,
+      price: body.price,
+      salePrice: body.salePrice,
     });
 
     if (!productResult.success) {
@@ -109,11 +111,12 @@ export async function POST(request: Request) {
         categoryId: productResult.data.categoryId,
         isActive: productResult.data.isActive,
         isFeatured: productResult.data.isFeatured,
+        price: productResult.data.price,
+        salePrice: productResult.data.salePrice,
         variants: {
           create: variantsResult.data.map((variant) => ({
             size: variant.size,
             colour: variant.colour,
-            price: variant.price,
             stock: variant.stock,
           })),
         },

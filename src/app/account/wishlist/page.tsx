@@ -23,6 +23,8 @@ export default async function WishlistPage() {
           id: true,
           name: true,
           slug: true,
+          price: true,
+          salePrice: true,
           category: { select: { name: true, slug: true } },
           subCategory: { select: { name: true, slug: true } },
           images: {
@@ -31,11 +33,7 @@ export default async function WishlistPage() {
             orderBy: { sortOrder: "asc" },
             select: { url: true },
           },
-          variants: {
-            where: { stock: { gt: 0 } },
-            orderBy: { price: "asc" },
-            select: { price: true, stock: true },
-          },
+        variants: { where: { stock: { gt: 0 } }, select: { stock: true } },
         },
       },
     },
@@ -48,7 +46,8 @@ export default async function WishlistPage() {
     category: product.category,
     subCategory: product.subCategory,
     image: product.images[0]?.url ?? null,
-    priceFrom: product.variants[0]?.price.toString() ?? null,
+    price: product.price.toString(),
+    salePrice: product.salePrice?.toString() ?? null,
     totalStock: product.variants.reduce((total, variant) => total + variant.stock, 0),
   }));
 

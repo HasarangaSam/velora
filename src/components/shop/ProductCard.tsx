@@ -3,6 +3,7 @@ import Link from "next/link";
 import WishlistButton from "@/components/shop/WishlistButton";
 import { ArrowUpRight } from "lucide-react";
 import { getCategoryDisplayName } from "@/lib/category-display";
+import { getCurrentPrice, getDiscountPercent } from "@/lib/product-pricing";
 
 type ProductCardProps = {
   product: {
@@ -15,17 +16,14 @@ type ProductCardProps = {
     };
     subCategory?: { name: string; slug: string } | null;
     image: string | null;
-    priceFrom: string | null;
+    price: string;
+    salePrice: string | null;
     totalStock: number;
   };
   isSaved?: boolean;
 };
 
-function formatPrice(price: string | null) {
-  if (!price) {
-    return "Price unavailable";
-  }
-
+function formatPrice(price: number | string) {
   return `LKR ${Number(price).toLocaleString("en-LK", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -56,6 +54,7 @@ export default function ProductCard({ product, isSaved = false }: ProductCardPro
               Almost gone
             </span>
           )}
+          {getDiscountPercent(product) !== null && <span className="absolute right-3 top-3 rounded-full bg-rose-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">{getDiscountPercent(product)}% off</span>}
           <span className="absolute bottom-3 right-3 hidden h-9 w-9 items-center justify-center rounded-full bg-white/95 text-stone-800 shadow-sm transition group-hover:flex group-focus-visible:flex" aria-hidden="true">
             <ArrowUpRight size={17} />
           </span>
@@ -70,9 +69,7 @@ export default function ProductCard({ product, isSaved = false }: ProductCardPro
             {product.name}
           </h2>
 
-          <p className="mt-2 text-sm font-semibold tracking-tight text-stone-950">
-            {formatPrice(product.priceFrom)}
-          </p>
+          <div className="mt-2 flex items-baseline gap-2"><p className="text-sm font-semibold tracking-tight text-stone-950">{formatPrice(getCurrentPrice(product))}</p>{getDiscountPercent(product) !== null && <><span className="text-xs text-stone-500 line-through">{formatPrice(product.price)}</span><span className="text-[10px] font-semibold text-rose-700">{getDiscountPercent(product)}% OFF</span></>}</div>
         </div>
       </Link>
       <WishlistButton key={`${product.id}-${isSaved}`} productId={product.id} productName={product.name} initialSaved={isSaved} />

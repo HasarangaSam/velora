@@ -2,6 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { redis } from "@/lib/redis";
 import { catalogQuerySchema } from "@/lib/validation/catalog";
+import { getCurrentPrice } from "@/lib/product-pricing";
 
 const PRODUCTS_PER_PAGE = 12;
 const CACHE_TTL = 60;
@@ -28,7 +29,8 @@ export type CatalogProduct = {
     slug: string;
   } | null;
   image: string | null;
-  priceFrom: string | null;
+  price: string;
+  salePrice: string | null;
   totalStock: number;
 };
 
@@ -44,7 +46,7 @@ export type CatalogResult = {
 
 function buildCacheKey(query: z.infer<typeof catalogQuerySchema>) {
   return [
-    "velora:products:v2",
+    "velora:products:v3",
     query.search,
     query.category,
     query.minPrice ?? "",
@@ -81,24 +83,23 @@ export async function getCatalogProducts(
           stock: {
             gt: 0,
           },
-          ...(query.minPrice !== undefined
-            ? {
-                price: {
-                  gte: query.minPrice,
-                },
-              }
-            : {}),
-          ...(query.maxPrice !== undefined
-            ? {
-                price: {
-                  lte: query.maxPrice,
-                },
-              }
-            : {}),
         },
       },
     },
   ];
+
+  const priceBounds = {
+    ...(query.minPrice !== undefined ? { gte: query.minPrice } : {}),
+    ...(query.maxPrice !== undefined ? { lte: query.maxPrice } : {}),
+  };
+  if (Object.keys(priceBounds).length) {
+    andConditions.push({
+      OR: [
+        { salePrice: null, price: priceBounds },
+        { salePrice: { not: null, ...priceBounds } },
+      ],
+    });
+  }
 
   if (query.search) {
     andConditions.push({
@@ -150,9 +151,8 @@ export async function getCatalogProducts(
       break;
     case "price-low":
     case "price-high":
-      // Price sorting is based on each product's lowest in-stock variant (the
-      // same price shown on product cards). Sort before pagination so pages
-      // remain globally ordered.
+      // Sale prices are computed in application code, so sorting by the effective
+      // price happens across the full filtered result before pagination below.
       orderBy = { createdAt: "desc" as const };
       break;
 
@@ -196,11 +196,7 @@ export async function getCatalogProducts(
               gt: 0,
             },
           },
-          orderBy: {
-            price: "asc",
-          },
           select: {
-            price: true,
             stock: true,
           },
         },
@@ -216,14 +212,11 @@ export async function getCatalogProducts(
 
   if (isPriceSort) {
     products.sort((a, b) => {
-      const aPrice = a.variants[0]?.price.toNumber() ?? 0;
-      const bPrice = b.variants[0]?.price.toNumber() ?? 0;
-      return query.sort === "price-low" ? aPrice - bPrice : bPrice - aPrice;
+      const difference = getCurrentPrice(a) - getCurrentPrice(b);
+      return query.sort === "price-low" ? difference : -difference;
     });
   }
-  const pageProducts = isPriceSort
-    ? products.slice(skip, skip + PRODUCTS_PER_PAGE)
-    : products;
+  const pageProducts = isPriceSort ? products.slice(skip, skip + PRODUCTS_PER_PAGE) : products;
 
   const result = {
     products: pageProducts.map((product) => ({
@@ -233,7 +226,8 @@ export async function getCatalogProducts(
       category: product.category,
       subCategory: product.subCategory,
       image: product.images[0]?.url ?? null,
-      priceFrom: product.variants[0]?.price.toString() ?? null,
+      price: product.price.toString(),
+      salePrice: product.salePrice?.toString() ?? null,
       totalStock: product.variants.reduce(
         (totalStock, variant) => totalStock + variant.stock,
         0,

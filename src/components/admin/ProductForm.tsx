@@ -22,13 +22,12 @@ type Category = {
 type Variant = {
   size: string;
   colour: string;
-  price: string;
   stock: string;
 };
 
 type SelectedImage = { file: File; previewUrl: string };
 
-const initialVariant: Variant = { size: "M", colour: "Black", price: "", stock: "0" };
+const initialVariant: Variant = { size: "M", colour: "Black", stock: "0" };
 
 const initialState: ProductActionState = { success: false, message: "" };
 
@@ -209,6 +208,18 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
       </div>
 
       {/* Flags */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="space-y-1 text-sm font-medium text-slate-700">Regular price (LKR)
+          <input name="price" type="number" min="0.01" step="0.01" required className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-sm" placeholder="0.00" />
+          {state.errors?.price && <span className="text-sm text-rose-600">{state.errors.price[0]}</span>}
+        </label>
+        <label className="space-y-1 text-sm font-medium text-slate-700">Sale price (LKR, optional)
+          <input name="salePrice" type="number" min="0.01" step="0.01" className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-sm" placeholder="Leave blank when not on sale" />
+          {state.errors?.salePrice && <span className="text-sm text-rose-600">{state.errors.salePrice[0]}</span>}
+        </label>
+      </div>
+
+      {/* Flags */}
       <div className="flex flex-wrap gap-6">
         <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
           <input
@@ -249,7 +260,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
         <div className="space-y-4">
           {variants.map((variant, index) => (
             <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <div className="grid gap-3 sm:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <label className="space-y-1 text-xs font-medium text-slate-600">
                   Size / fit
                   <select
@@ -288,20 +299,6 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
-                </label>
-
-                <label className="space-y-1 text-xs font-medium text-slate-600">
-                  Price (LKR)
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={variant.price}
-                    onChange={(e) => updateVariant(index, "price", e.target.value)}
-                    placeholder="0.00"
-                    className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800"
-                    required
-                  />
                 </label>
 
                 <label className="space-y-1 text-xs font-medium text-slate-600">

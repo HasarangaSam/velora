@@ -3,9 +3,13 @@ import { z } from "zod";
 export const productVariantSchema = z.object({
   size: z.string().trim().min(1).max(20),
   colour: z.string().trim().min(1).max(50),
-  price: z.coerce.number().positive().max(10000000),
   stock: z.coerce.number().int().min(0).max(1000000),
 });
+
+const optionalSalePrice = z.preprocess(
+  (value) => value === "" || value === null || value === undefined ? null : value,
+  z.coerce.number().positive().max(10000000).nullable(),
+);
 
 export const productSchema = z.object({
   name: z.string().trim().min(2).max(150),
@@ -14,6 +18,12 @@ export const productSchema = z.object({
   subCategoryId: z.string().nullish(),
   isActive: z.boolean(),
   isFeatured: z.boolean(),
+  price: z.coerce.number().positive().max(10000000),
+  salePrice: optionalSalePrice,
+}).superRefine((product, context) => {
+  if (product.salePrice !== null && product.salePrice >= product.price) {
+    context.addIssue({ code: "custom", path: ["salePrice"], message: "Sale price must be lower than the regular price." });
+  }
 });
 
 export const categorySchema = z.object({

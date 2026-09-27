@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
 import { calculateOrderTotals } from "@/lib/order";
+import { getCurrentPrice } from "@/lib/product-pricing";
 import { createOrderSchema } from "@/lib/validation/order";
 import { notifyAdmins } from "@/lib/notifications";
 import { checkRateLimit } from "@/lib/redis";
@@ -289,15 +290,15 @@ export async function POST(request: Request) {
       include: {
         items: {
           include: {
-            product: { select: { id: true, name: true, isActive: true } },
-            variant: { select: { id: true, productId: true, size: true, colour: true, price: true, stock: true } },
+            product: { select: { id: true, name: true, isActive: true, price: true, salePrice: true } },
+            variant: { select: { id: true, productId: true, size: true, colour: true, stock: true } },
           },
         },
       },
     });
     const buyNowVariant = buyNow ? await prisma.productVariant.findUnique({
       where: { id: buyNow.variantId },
-      include: { product: { select: { id: true, name: true, isActive: true } } },
+      include: { product: { select: { id: true, name: true, isActive: true, price: true, salePrice: true } } },
     }) : null;
     const itemsToOrder = buyNow && buyNowVariant
       ? [{ productId: buyNowVariant.productId, variantId: buyNowVariant.id, quantity: buyNow.quantity, product: buyNowVariant.product, variant: buyNowVariant }]
@@ -375,7 +376,9 @@ export async function POST(request: Request) {
               name: item.product.name,
               size: item.variant.size,
               colour: item.variant.colour,
-              price: item.variant.price,
+              // Keep order lines consistent with the totals calculated from
+              // the same server-side product prices before this transaction.
+              price: getCurrentPrice(item.product),
               quantity: item.quantity,
             })),
           },

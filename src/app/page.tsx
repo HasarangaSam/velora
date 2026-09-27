@@ -17,7 +17,8 @@ type HomepageProduct = {
     slug: string;
   };
   image: string | null;
-  priceFrom: string | null;
+  price: string;
+  salePrice: string | null;
   totalStock: number;
 };
 
@@ -45,11 +46,7 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
         take: 1,
         orderBy: { sortOrder: "asc" },
       },
-      variants: {
-        where: { stock: { gt: 0 } },
-        orderBy: { price: "asc" },
-        select: { price: true, stock: true },
-      },
+      variants: { where: { stock: { gt: 0 } }, select: { stock: true } },
     },
   });
 
@@ -59,7 +56,8 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
     slug: p.slug,
     category: p.category,
     image: p.images[0]?.url ?? null,
-    priceFrom: p.variants[0]?.price.toString() ?? null,
+    price: p.price.toString(),
+    salePrice: p.salePrice?.toString() ?? null,
     totalStock: p.variants.reduce((sum, v) => sum + v.stock, 0),
   }));
 

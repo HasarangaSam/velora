@@ -124,6 +124,8 @@ model Product {
   description     String   @db.Text
   categoryId      String
   subCategoryId   String?  // optional sub-category within main category
+  price           Decimal  @db.Decimal(10, 2)
+  salePrice       Decimal? @db.Decimal(10, 2)
   isActive        Boolean  @default(true)
   isFeatured      Boolean  @default(false)
 
@@ -198,7 +200,6 @@ model ProductVariant {
   productId String
   size      String
   colour    String
-  price     Decimal  @db.Decimal(10, 2)
   stock     Int      @default(0)
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
