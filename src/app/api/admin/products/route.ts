@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { productSchema, productVariantSchema } from "@/lib/validation/product";
+import { hasDuplicateProductVariantOptions, productSchema, productVariantSchema } from "@/lib/validation/product";
 import { redis } from "@/lib/redis";
 
 export async function GET() {
@@ -69,6 +69,13 @@ export async function POST(request: Request) {
           message: "Please correct the variant details.",
           errors: variantsResult.error.flatten().fieldErrors,
         },
+        { status: 400 },
+      );
+    }
+
+    if (hasDuplicateProductVariantOptions(variantsResult.data)) {
+      return NextResponse.json(
+        { message: "Each size and colour combination can only be added once." },
         { status: 400 },
       );
     }

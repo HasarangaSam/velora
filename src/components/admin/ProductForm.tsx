@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, X } from "lucide-react";
 import { PRODUCT_COLOURS, PRODUCT_SIZES } from "@/lib/catalog";
 import { getCategoryDisplayName } from "@/lib/category-display";
+import { hasDuplicateProductVariantOptions } from "@/lib/validation/product";
 import {
   createProduct,
   type ProductActionState,
@@ -43,6 +44,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
   const [isFeatured, setIsFeatured] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [variants, setVariants] = useState<Variant[]>([{ ...initialVariant }]);
+  const [variantError, setVariantError] = useState("");
 
   useEffect(() => () => {
     imagePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
@@ -90,6 +92,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
   }, [images, router, state.productId, state.success]);
 
   function updateVariant(index: number, field: keyof Variant, value: string) {
+    setVariantError("");
     setVariants((cur) =>
       cur.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
     );
@@ -99,6 +102,12 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
     <form
       action={formAction}
       onSubmit={(event) => {
+        if (hasDuplicateProductVariantOptions(variants)) {
+          event.preventDefault();
+          setVariantError("Each size and colour combination can only be added once. Change or remove the duplicate variant.");
+          return;
+        }
+
         if (images.length === 0) {
           event.preventDefault();
           setImageError("Select at least one product image before creating the product.");
@@ -250,12 +259,20 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           </div>
           <button
             type="button"
-            onClick={() => setVariants((cur) => [...cur, { ...initialVariant }])}
+            onClick={() => {
+              setVariantError("");
+              setVariants((cur) => [...cur, { ...initialVariant }]);
+            }}
             className="rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 transition"
           >
             + Add variant
           </button>
         </div>
+        {(variantError || state.message === "Each size and colour combination can only be added once.") && (
+          <p role="alert" className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {variantError || state.message}
+          </p>
+        )}
 
         <div className="space-y-4">
           {variants.map((variant, index) => (
@@ -319,7 +336,10 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                 <button
                   type="button"
                   onClick={() =>
-                    setVariants((cur) => cur.filter((_, i) => i !== index))
+                    {
+                      setVariantError("");
+                      setVariants((cur) => cur.filter((_, i) => i !== index));
+                    }
                   }
                   className="mt-3 text-xs font-medium text-rose-600 hover:text-rose-700"
                 >

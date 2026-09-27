@@ -231,6 +231,9 @@ export default async function AdminOrderDetailPage({
                   {order.user.name ?? order.shippingFullName}
                 </span>
               </div>
+              <Link href={"/admin/users/" + order.user.id} className="inline-flex items-center gap-1 pt-1 font-semibold text-blue-700 hover:text-blue-900">
+                View customer profile <ArrowLeft size={12} className="rotate-180" />
+              </Link>
               <div>
                 <span className="text-slate-400 font-medium block">Email</span>
                 <span className="font-medium text-slate-800">

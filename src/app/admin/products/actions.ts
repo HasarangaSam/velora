@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { productSchema, productVariantSchema } from "@/lib/validation/product";
+import { hasDuplicateProductVariantOptions, productSchema, productVariantSchema } from "@/lib/validation/product";
 import { redis } from "@/lib/redis";
 import cloudinary from "@/lib/cloudinary";
 import { z } from "zod";
@@ -85,6 +85,10 @@ export async function createProduct(
         ...initialState,
         message: "Please correct the variant details.",
       };
+    }
+
+    if (hasDuplicateProductVariantOptions(variantsResult.data)) {
+      return { ...initialState, message: "Each size and colour combination can only be added once." };
     }
 
     const category = await prisma.category.findUnique({

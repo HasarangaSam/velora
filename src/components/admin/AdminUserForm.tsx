@@ -43,8 +43,8 @@ export default function AdminUserForm({ user, isSelf = false }: { user?: AdminUs
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <Link href="/admin/users" className="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-900">
-          <ArrowLeft className="h-4 w-4" /> Back to users
+        <Link href={user ? "/admin/users/" + user.id : "/admin/users"} className="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-900">
+          <ArrowLeft className="h-4 w-4" /> {user ? "Back to customer profile" : "Back to users"}
         </Link>
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Account management</p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{user ? "Edit user" : "Create user"}</h1>

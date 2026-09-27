@@ -177,7 +177,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     <td className="px-6 py-4 text-right">
                       <div className="flex min-w-44 flex-col items-end gap-2">
                         <Link href={`/admin/users/${user.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 transition hover:text-blue-700">
-                          Manage <ArrowUpRight className="h-3.5 w-3.5" />
+                          View profile <ArrowUpRight className="h-3.5 w-3.5" />
                         </Link>
                         <UserRoleToggle userId={user.id} currentRole={user.role} isSelf={currentAdmin.id === user.id} />
                       </div>

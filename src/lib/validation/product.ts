@@ -6,6 +6,18 @@ export const productVariantSchema = z.object({
   stock: z.coerce.number().int().min(0).max(1000000),
 });
 
+export function hasDuplicateProductVariantOptions(
+  variants: readonly { size: string; colour: string }[],
+) {
+  const seen = new Set<string>();
+  for (const variant of variants) {
+    const optionKey = `${variant.size.toLowerCase()}::${variant.colour.toLowerCase()}`;
+    if (seen.has(optionKey)) return true;
+    seen.add(optionKey);
+  }
+  return false;
+}
+
 const optionalSalePrice = z.preprocess(
   (value) => value === "" || value === null || value === undefined ? null : value,
   z.coerce.number().positive().max(10000000).nullable(),

@@ -31,6 +31,8 @@ function formatPrice(price: number | string) {
 }
 
 export default function ProductCard({ product, isSaved = false }: ProductCardProps) {
+  const discountPercent = getDiscountPercent(product);
+
   return (
     <article className="group relative min-w-0">
       <Link href={`/products/${product.slug}`} className="block">
@@ -50,11 +52,19 @@ export default function ProductCard({ product, isSaved = false }: ProductCardPro
             </div>
           )}
           {product.totalStock > 0 && product.totalStock < 5 && (
-            <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-stone-700 shadow-sm backdrop-blur">
+            <span className={`absolute left-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-stone-700 shadow-sm backdrop-blur ${discountPercent !== null ? "bottom-3" : "top-3"}`}>
               Almost gone
             </span>
           )}
-          {getDiscountPercent(product) !== null && <span className="absolute right-3 top-3 rounded-full bg-rose-700 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">{getDiscountPercent(product)}% off</span>}
+          {discountPercent !== null && (
+            <span
+              aria-label={`${discountPercent}% off`}
+              className="absolute left-3 top-3 z-10 flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 border-white bg-rose-700 text-white shadow-lg ring-1 ring-rose-950/15"
+            >
+              <span className="text-base font-extrabold leading-none">{discountPercent}%</span>
+              <span className="mt-0.5 text-[9px] font-bold uppercase leading-none tracking-[0.12em]">Off</span>
+            </span>
+          )}
           <span className="absolute bottom-3 right-3 hidden h-9 w-9 items-center justify-center rounded-full bg-white/95 text-stone-800 shadow-sm transition group-hover:flex group-focus-visible:flex" aria-hidden="true">
             <ArrowUpRight size={17} />
           </span>

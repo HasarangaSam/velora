@@ -108,7 +108,7 @@ export default async function AdminLayout({
             className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
           >
             <Users size={18} />
-            Customers & Roles
+            User Management
           </Link>
 
           <Link
