@@ -93,13 +93,15 @@ export async function sendVerificationOtpEmail({
       html,
       text: `Your Velora verification code is: ${otp}. It expires in 15 minutes.`,
     });
-    console.log(`[EMAIL] Verification OTP sent to ${to}`);
+    console.log("[EMAIL] Verification message sent.");
     return { success: true };
   } catch (error) {
-    console.warn(`[EMAIL WARNING] Failed to send verification email via SMTP to ${to}:`, error);
-    console.log(`[EMAIL FALLBACK] OTP for ${to} is: >>> ${otp} <<<`);
-    // Return success: true so in development or offline mode the user can still proceed with logged OTP
-    return { success: true, fallbackOtp: otp };
+    console.warn("[EMAIL WARNING] Verification message delivery failed.", error instanceof Error ? error.name : "Unknown error");
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`[DEV ONLY] Verification code for ${to}: ${otp}`);
+      return { success: true, fallbackOtp: otp };
+    }
+    return { success: false };
   }
 }
 
@@ -167,12 +169,15 @@ export async function sendPasswordResetEmail({
       html,
       text: `Reset your Velora password here: ${resetUrl}`,
     });
-    console.log(`[EMAIL] Password reset email sent to ${to}`);
+    console.log("[EMAIL] Password reset message sent.");
     return { success: true };
   } catch (error) {
-    console.warn(`[EMAIL WARNING] Failed to send password reset email to ${to}:`, error);
-    console.log(`[EMAIL FALLBACK] Password reset URL: ${resetUrl}`);
-    return { success: true, fallbackUrl: resetUrl };
+    console.warn("[EMAIL WARNING] Password reset message delivery failed.", error instanceof Error ? error.name : "Unknown error");
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`[DEV ONLY] Password reset URL for ${to}: ${resetUrl}`);
+      return { success: true, fallbackUrl: resetUrl };
+    }
+    return { success: false };
   }
 }
 
@@ -199,10 +204,10 @@ export async function sendOrderStatusEmail({
 
   try {
     await getTransporter().sendMail({ from: FROM_EMAIL, to, subject, text, html });
-    console.log(`[EMAIL] Order status email sent to ${to} (${orderNumber}: ${status})`);
+    console.log(`[EMAIL] Order status message sent (${status}).`);
     return { success: true };
   } catch (error) {
-    console.warn(`[EMAIL WARNING] Failed to send order status email to ${to}:`, error);
+    console.warn("[EMAIL WARNING] Order status message delivery failed.", error instanceof Error ? error.name : "Unknown error");
     return { success: false };
   }
 }
@@ -238,10 +243,10 @@ export async function sendOrderConfirmationEmail(order: OrderConfirmationDetails
 
   try {
     await getTransporter().sendMail({ from: FROM_EMAIL, to: order.to, subject: `Payment received — order ${safeOrderNumber}`, text, html });
-    console.log(`[EMAIL] Order confirmation sent to ${order.to} (${order.orderNumber})`);
+    console.log("[EMAIL] Order confirmation message sent.");
     return { success: true };
   } catch (error) {
-    console.warn(`[EMAIL WARNING] Failed to send order confirmation to ${order.to}:`, error);
+    console.warn("[EMAIL WARNING] Order confirmation message delivery failed.", error instanceof Error ? error.name : "Unknown error");
     return { success: false };
   }
 }

@@ -4,6 +4,12 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/db/prisma";
+import {
+  canAttemptCredentialLogin,
+  clearCredentialLoginFailures,
+  getTrustedClientIp,
+  recordCredentialLoginFailure,
+} from "@/lib/auth/security";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -28,7 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (
           typeof credentials?.email !== "string" ||
           typeof credentials?.password !== "string"
@@ -37,17 +43,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const email = credentials.email.toLowerCase().trim();
+        if (!email || email.length > 255) return null;
+
+        const clientIp = getTrustedClientIp(request.headers);
+        if (!(await canAttemptCredentialLogin(email, clientIp))) return null;
 
         const user = await prisma.user.findUnique({
           where: { email },
         });
 
         if (!user || !user.password) {
+          await recordCredentialLoginFailure(email, clientIp);
           return null;
         }
 
         // Block sign-in for unverified accounts
         if (!user.emailVerified) {
+          await recordCredentialLoginFailure(email, clientIp);
           return null;
         }
 
@@ -57,8 +69,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         );
 
         if (!passwordMatches) {
+          await recordCredentialLoginFailure(email, clientIp);
           return null;
         }
+
+        await clearCredentialLoginFailures(email);
 
         return {
           id: user.id,

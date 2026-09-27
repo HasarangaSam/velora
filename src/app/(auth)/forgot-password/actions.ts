@@ -2,12 +2,16 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { checkRateLimit } from "@/lib/redis";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { headers } from "next/headers";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { strongPasswordSchema } from "@/lib/validation/password";
+import {
+  consumeSensitiveRateLimit,
+  getTrustedClientIp,
+  hashAuthValue,
+} from "@/lib/auth/security";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared types
@@ -35,12 +39,10 @@ export async function requestPasswordReset(
 ): Promise<ForgotPasswordState> {
   try {
     const headerList = await headers();
-    const forwardedFor = headerList.get("x-forwarded-for");
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "anonymous";
+    const ip = getTrustedClientIp(headerList);
 
     // Rate-limit: max 3 reset requests per IP per 15 minutes
-    const { success: rateOk } = await checkRateLimit(`forgot-pwd:${ip}`, 3, 900);
-    if (!rateOk) {
+    if (ip && !(await consumeSensitiveRateLimit("forgot-password-ip", ip, 3, 900))) {
       return {
         success: false,
         message: "Too many reset requests. Please wait 15 minutes before trying again.",
@@ -55,6 +57,15 @@ export async function requestPasswordReset(
 
     const email = emailParsed.data.toLowerCase();
 
+    // Limit reset email volume by account as well as trusted client IP.
+    if (!(await consumeSensitiveRateLimit("forgot-password-email", email, 3, 900))) {
+      return {
+        success: true,
+        email,
+        message: "If an account exists for that email, you'll receive a reset link within a few minutes.",
+      };
+    }
+
     // We always return the SAME generic success to prevent email enumeration
     const user = await prisma.user.findUnique({
       where: { email },
@@ -68,9 +79,10 @@ export async function requestPasswordReset(
       // Generate a secure opaque token
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      const tokenDigest = hashAuthValue(token, "password-reset-token");
 
       await prisma.passwordResetToken.create({
-        data: { email, token, expiresAt },
+        data: { email, token: tokenDigest, expiresAt },
       });
 
       const baseUrl =
@@ -95,7 +107,7 @@ export async function requestPasswordReset(
         "If an account exists for that email, you'll receive a reset link within a few minutes.",
     };
   } catch (error) {
-    console.error("Forgot password error:", error);
+    console.error("Forgot password request failed.", error instanceof Error ? error.name : "Unknown error");
     return {
       success: false,
       message: "Something went wrong. Please try again.",
@@ -124,11 +136,9 @@ export async function resetPassword(
 ): Promise<ResetPasswordState> {
   try {
     const headerList = await headers();
-    const forwardedFor = headerList.get("x-forwarded-for");
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "anonymous";
+    const ip = getTrustedClientIp(headerList);
 
-    const { success: rateOk } = await checkRateLimit(`reset-pwd:${ip}`, 5, 300);
-    if (!rateOk) {
+    if (ip && !(await consumeSensitiveRateLimit("reset-password-ip", ip, 5, 300))) {
       return { success: false, message: "Too many attempts. Please wait a few minutes." };
     }
 
@@ -148,8 +158,13 @@ export async function resetPassword(
     }
 
     const { token, password } = result.data;
+    const tokenDigest = hashAuthValue(token, "password-reset-token");
 
-    const record = await prisma.passwordResetToken.findUnique({ where: { token } });
+    if (!(await consumeSensitiveRateLimit("reset-password-token", tokenDigest, 5, 900))) {
+      return { success: false, message: "Too many attempts. Please request a new reset link." };
+    }
+
+    const record = await prisma.passwordResetToken.findUnique({ where: { token: tokenDigest } });
 
     if (!record) {
       return {
@@ -159,7 +174,7 @@ export async function resetPassword(
     }
 
     if (new Date() > record.expiresAt) {
-      await prisma.passwordResetToken.delete({ where: { id: record.id } });
+      await prisma.passwordResetToken.deleteMany({ where: { id: record.id, token: tokenDigest } });
       return {
         success: false,
         message: "This reset link has expired. Please request a new one.",
@@ -168,24 +183,39 @@ export async function resetPassword(
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Update password + bump sessionVersion to invalidate all active sessions
-    await prisma.user.update({
-      where: { email: record.email },
-      data: {
-        password: hashedPassword,
-        sessionVersion: { increment: 1 },
-      },
+    // Claim the live token and update the password atomically. Concurrent
+    // submissions can consume the same token only once.
+    const resetSucceeded = await prisma.$transaction(async (tx) => {
+      const consumed = await tx.passwordResetToken.deleteMany({
+        where: {
+          id: record.id,
+          token: tokenDigest,
+          expiresAt: { gt: new Date() },
+        },
+      });
+      if (consumed.count !== 1) return false;
+
+      const updatedUser = await tx.user.updateMany({
+        where: { email: record.email },
+        data: {
+          password: hashedPassword,
+          sessionVersion: { increment: 1 },
+        },
+      });
+      if (updatedUser.count !== 1) throw new Error("RESET_USER_NOT_FOUND");
+      return true;
     });
 
-    // Consume the token
-    await prisma.passwordResetToken.delete({ where: { id: record.id } });
+    if (!resetSucceeded) {
+      return { success: false, message: "This reset link is invalid, expired, or already used. Request a new one." };
+    }
 
     return {
       success: true,
       message: "Password reset successfully! You can now sign in with your new password.",
     };
   } catch (error) {
-    console.error("Reset password error:", error);
+    console.error("Password reset failed.", error instanceof Error ? error.name : "Unknown error");
     return { success: false, message: "Password reset failed. Please try again." };
   }
 }

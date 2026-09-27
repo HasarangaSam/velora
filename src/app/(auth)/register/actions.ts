@@ -3,9 +3,14 @@
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { checkRateLimit } from "@/lib/redis";
 import { sendVerificationOtpEmail } from "@/lib/email";
 import { strongPasswordSchema } from "@/lib/validation/password";
+import {
+  consumeSensitiveRateLimit,
+  getTrustedClientIp,
+  hashAuthValue,
+  safeDigestEqual,
+} from "@/lib/auth/security";
 import { headers } from "next/headers";
 import crypto from "crypto";
 
@@ -20,6 +25,8 @@ export type VerifyOtpActionState = {
   success: boolean;
   message: string;
 };
+
+const MAX_VERIFICATION_CODE_ATTEMPTS = 5;
 
 const registerSchema = z.object({
   name: z
@@ -50,11 +57,8 @@ export async function registerUser(
 ): Promise<RegisterActionState> {
   try {
     const headerList = await headers();
-    const forwardedFor = headerList.get("x-forwarded-for");
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "anonymous";
-
-    const { success } = await checkRateLimit(`register:${ip}`, 5, 900);
-    if (!success) {
+    const ip = getTrustedClientIp(headerList);
+    if (ip && !(await consumeSensitiveRateLimit("register-ip", ip, 5, 900))) {
       return {
         success: false,
         message: "Too many registration attempts. Please try again later.",
@@ -77,6 +81,12 @@ export async function registerUser(
     }
 
     const normalizedEmail = result.data.email.toLowerCase();
+    if (!(await consumeSensitiveRateLimit("register-email", normalizedEmail, 5, 900))) {
+      return {
+        success: false,
+        message: "Too many registration attempts for this email. Please try again later.",
+      };
+    }
 
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -137,7 +147,12 @@ async function sendNewOtp(email: string, name?: string) {
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
   await prisma.verificationCode.create({
-    data: { email, code: otp, type: "REGISTER_OTP", expiresAt },
+    data: {
+      email,
+      code: hashAuthValue(`${email}:${otp}`, "verification-code:REGISTER_OTP"),
+      type: "REGISTER_OTP",
+      expiresAt,
+    },
   });
 
   await sendVerificationOtpEmail({ to: email, name, otp });
@@ -151,17 +166,15 @@ export async function verifyRegistrationOtp(
     const email = formData.get("email")?.toString().trim().toLowerCase();
     const code = formData.get("code")?.toString().trim();
 
-    if (!email || !code) {
+    if (!email || email.length > 255 || !code || !/^\d{6}$/.test(code)) {
       return { success: false, message: "Email and verification code are required." };
     }
 
     const headerList = await headers();
-    const forwardedFor = headerList.get("x-forwarded-for");
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "anonymous";
+    const ip = getTrustedClientIp(headerList);
 
     // Rate limit OTP attempts per IP
-    const { success: rateOk } = await checkRateLimit(`verify-otp:${ip}`, 10, 300);
-    if (!rateOk) {
+    if (ip && !(await consumeSensitiveRateLimit("verify-otp-ip", ip, 10, 300))) {
       return { success: false, message: "Too many attempts. Please wait a moment." };
     }
 
@@ -179,18 +192,46 @@ export async function verifyRegistrationOtp(
       return { success: false, message: "Verification code has expired. Please request a new one." };
     }
 
-    if (record.code !== code) {
+    if (record.attempts >= MAX_VERIFICATION_CODE_ATTEMPTS) {
+      await prisma.verificationCode.deleteMany({ where: { id: record.id } });
+      return { success: false, message: "Too many incorrect attempts. Please request a new code." };
+    }
+
+    const codeDigest = hashAuthValue(`${email}:${code}`, "verification-code:REGISTER_OTP");
+    if (!safeDigestEqual(record.code, codeDigest)) {
+      const attemptUpdate = await prisma.verificationCode.updateMany({
+        where: { id: record.id, attempts: { lt: MAX_VERIFICATION_CODE_ATTEMPTS } },
+        data: { attempts: { increment: 1 } },
+      });
+      if (record.attempts + 1 >= MAX_VERIFICATION_CODE_ATTEMPTS || attemptUpdate.count === 0) {
+        await prisma.verificationCode.deleteMany({
+          where: { id: record.id, attempts: { gte: MAX_VERIFICATION_CODE_ATTEMPTS } },
+        });
+      }
       return { success: false, message: "Incorrect verification code. Please try again." };
     }
 
-    // Mark user as verified
-    await prisma.user.update({
-      where: { email },
-      data: { emailVerified: new Date() },
+    const verified = await prisma.$transaction(async (tx) => {
+      const consumed = await tx.verificationCode.deleteMany({
+        where: {
+          id: record.id,
+          code: codeDigest,
+          attempts: { lt: MAX_VERIFICATION_CODE_ATTEMPTS },
+          expiresAt: { gt: new Date() },
+        },
+      });
+      if (consumed.count !== 1) return false;
+
+      const result = await tx.user.updateMany({
+        where: { email, emailVerified: null },
+        data: { emailVerified: new Date() },
+      });
+      return result.count === 1;
     });
 
-    // Clean up used code
-    await prisma.verificationCode.deleteMany({ where: { email, type: "REGISTER_OTP" } });
+    if (!verified) {
+      return { success: false, message: "This code is invalid or has already been used. Request a new code." };
+    }
 
     return { success: true, message: "Email verified successfully! You can now sign in." };
   } catch (error) {
@@ -205,16 +246,18 @@ export async function resendRegistrationOtp(
 ): Promise<VerifyOtpActionState> {
   try {
     const email = formData.get("email")?.toString().trim().toLowerCase();
-    if (!email) {
+    if (!email || email.length > 255) {
       return { success: false, message: "Email is required." };
     }
 
     const headerList = await headers();
-    const forwardedFor = headerList.get("x-forwarded-for");
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "anonymous";
+    const ip = getTrustedClientIp(headerList);
 
-    const { success: rateOk } = await checkRateLimit(`resend-otp:${ip}`, 3, 300);
-    if (!rateOk) {
+    if (ip && !(await consumeSensitiveRateLimit("resend-otp-ip", ip, 3, 300))) {
+      return { success: false, message: "Too many resend attempts. Please wait a few minutes." };
+    }
+
+    if (!(await consumeSensitiveRateLimit("resend-otp-email", email, 3, 900))) {
       return { success: false, message: "Too many resend attempts. Please wait a few minutes." };
     }
 

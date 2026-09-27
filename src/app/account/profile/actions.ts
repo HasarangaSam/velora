@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-user";
 import { z } from "zod";
 import { sendVerificationOtpEmail } from "@/lib/email";
+import { consumeSensitiveRateLimit, hashAuthValue } from "@/lib/auth/security";
 
 export type ProfileActionState = {
   success: boolean;
@@ -24,6 +25,9 @@ export async function updateMyProfile(
 ): Promise<ProfileActionState> {
   try {
     const user = await requireUser();
+    if (!(await consumeSensitiveRateLimit("email-change-user", user.id, 5, 900))) {
+      return { ...emptyState, message: "Too many email change attempts. Please try again later." };
+    }
     const result = z.object({
       name: z.string().trim().min(2, "Name must be at least 2 characters.").max(100),
     }).safeParse({ name: formData.get("name") });
@@ -62,6 +66,9 @@ export async function changeMyEmail(
     if (!result.success) {
       return { ...emptyState, message: "Please enter a valid new email address.", errors: result.error.flatten().fieldErrors };
     }
+    if (!(await consumeSensitiveRateLimit("email-change-address", result.data.newEmail, 5, 900))) {
+      return { ...emptyState, message: "Too many email change attempts. Please try again later." };
+    }
 
     const existing = await prisma.user.findUnique({
       where: { id: user.id },
@@ -95,7 +102,12 @@ export async function changeMyEmail(
       });
       await tx.passwordResetToken.deleteMany({ where: { OR: [{ email: existing.email }, { email: result.data.newEmail }] } });
       await tx.verificationCode.create({
-        data: { email: result.data.newEmail, code: otp, type: "REGISTER_OTP", expiresAt },
+        data: {
+          email: result.data.newEmail,
+          code: hashAuthValue(`${result.data.newEmail}:${otp}`, "verification-code:REGISTER_OTP"),
+          type: "REGISTER_OTP",
+          expiresAt,
+        },
       });
     }, { isolationLevel: "Serializable" });
 

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { sendVerificationOtpEmail } from "@/lib/email";
+import { hashAuthValue } from "@/lib/auth/security";
 import { UserRole } from "@/generated/prisma/enums";
 
 export type AdminUserActionState = {
@@ -111,7 +112,12 @@ export async function saveAdminUser(
           where: { OR: [{ email: existing.email }, { email: parsed.data.email }] },
         });
         await tx.verificationCode.create({
-          data: { email: parsed.data.email, code: newOtp, type: "REGISTER_OTP", expiresAt },
+          data: {
+            email: parsed.data.email,
+            code: hashAuthValue(`${parsed.data.email}:${newOtp}`, "verification-code:REGISTER_OTP"),
+            type: "REGISTER_OTP",
+            expiresAt,
+          },
         });
       }
     }, { isolationLevel: "Serializable" });

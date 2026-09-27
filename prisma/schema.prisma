@@ -377,8 +377,9 @@ model CouponUsage {
 model VerificationCode {
   id        String   @id @default(cuid())
   email     String
-  code      String
+  code      String   // HMAC-SHA256 digest; never store the emailed OTP in plaintext
   type      String   // "REGISTER_OTP" | "RESET_PASSWORD_OTP"
+  attempts  Int      @default(0)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
