@@ -7,6 +7,7 @@ import ProductCard from "@/components/shop/ProductCard";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import { ArrowRight } from "lucide-react";
 import WelcomeOffer from "@/components/shop/WelcomeOffer";
+import { getDiscountPercent } from "@/lib/product-pricing";
 
 type HomepageProduct = {
   id: string;
@@ -65,6 +66,39 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
   return formatted;
 }
 
+async function getSaleProducts(): Promise<HomepageProduct[]> {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      salePrice: { not: null },
+      variants: { some: { stock: { gt: 0 } } },
+      images: { some: { isPrimary: true } },
+    },
+    take: 4,
+    orderBy: { updatedAt: "desc" },
+    include: {
+      category: { select: { name: true, slug: true } },
+      images: {
+        where: { isPrimary: true },
+        take: 1,
+        orderBy: { sortOrder: "asc" },
+      },
+      variants: { where: { stock: { gt: 0 } }, select: { stock: true } },
+    },
+  });
+
+  return products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    category: product.category,
+    image: product.images[0]?.url ?? null,
+    price: product.price.toString(),
+    salePrice: product.salePrice?.toString() ?? null,
+    totalStock: product.variants.reduce((total, variant) => total + variant.stock, 0),
+  }));
+}
+
 async function getCategoryProductImage(
   categorySlug: string,
   subCategorySlug: string,
@@ -96,8 +130,9 @@ export default async function HomePage() {
   // Featured products depend on live database data, so defer this query until
   // a request instead of trying to execute it during a production build.
   await connection();
-  const [featuredProducts, menImage, womenImage, kidsImage, sareeImage] = await Promise.all([
+  const [featuredProducts, saleProducts, menImage, womenImage, kidsImage, sareeImage] = await Promise.all([
     getFeaturedProducts(),
+    getSaleProducts(),
     getCategoryProductImage("men", "men-shirts"),
     getCategoryProductImage("women", "women-dresses", true),
     getCategoryProductImage("kids", "kids-t-shirts"),
@@ -119,6 +154,58 @@ export default async function HomePage() {
           <div className="py-4 text-center sm:py-5"><p className="text-sm font-semibold text-stone-900">Secure PayHere checkout</p><p className="mt-1 text-xs text-stone-500">Your payment is confirmed before dispatch</p></div>
         </div>
       </section>
+
+      {saleProducts.length > 0 && (
+        <section aria-labelledby="homepage-sale-title" className="bg-[#f5f3ee]">
+          <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+            <div className="mb-8 flex flex-col justify-between gap-4 sm:mb-10 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-700">Limited-time prices</p>
+                <h2 id="homepage-sale-title" className="mt-2 text-3xl font-medium tracking-tight text-stone-950 sm:text-4xl">
+                  The Sale Edit
+                </h2>
+              </div>
+              <Link
+                href="/shop?saleOnly=true"
+                className="inline-flex items-center gap-2 text-sm font-medium text-stone-700 transition hover:text-rose-700"
+              >
+                Shop all sale pieces <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-4">
+              <Link
+                href="/shop?saleOnly=true"
+                className="group relative col-span-2 flex min-h-[280px] overflow-hidden rounded-2xl bg-stone-900 sm:min-h-[360px] lg:col-span-1"
+              >
+                <Image
+                  src={saleProducts[0].image!}
+                  alt={saleProducts[0].name}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 25vw"
+                  className="object-cover object-center transition-transform duration-700 group-hover:scale-[1.04]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/85 via-stone-950/15 to-transparent" />
+                <div className="relative mt-auto p-6 text-white sm:p-7">
+                  <span className="inline-flex rounded-full border border-white/50 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] backdrop-blur-sm">
+                    Up to {Math.max(...saleProducts.map((product) => getDiscountPercent(product) ?? 0))}% off
+                  </span>
+                  <h3 className="mt-4 max-w-xs text-2xl font-medium leading-tight tracking-tight sm:text-3xl">
+                    Good things, at a little less.
+                  </h3>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium">
+                    Explore the edit <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </Link>
+
+              {saleProducts.slice(1).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Categories Showcase */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">

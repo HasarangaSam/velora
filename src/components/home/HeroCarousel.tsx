@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const slides = [
-  { src: "/1.png", alt: "Velora featured fashion collection" },
+  { src: "/1new.png", alt: "Velora featured fashion collection" },
   { src: "/2.png", alt: "Explore everyday styles from Velora" },
   { src: "/3.png", alt: "Discover the latest looks from Velora" },
 ];
@@ -42,7 +42,6 @@ export default function HeroCarousel() {
           />
         </div>
       ))}
-
     </div>
   );
 }

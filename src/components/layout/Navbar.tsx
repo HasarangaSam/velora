@@ -108,7 +108,8 @@ export default function Navbar() {
       (selectedCategory === slug || selectedCategory.startsWith(`${slug}-`));
   }
 
-  const allProductsActive = pathname === "/shop" && !selectedCategory;
+  const saleActive = pathname === "/shop" && searchParams.get("saleOnly") === "true";
+  const allProductsActive = pathname === "/shop" && !selectedCategory && !saleActive;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -140,6 +141,13 @@ export default function Navbar() {
               className={`relative py-2 transition ${allProductsActive ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
             >
               All Products
+            </Link>
+            <Link
+              href="/shop?saleOnly=true"
+              aria-current={saleActive ? "page" : undefined}
+              className={`relative py-2 font-semibold transition ${saleActive ? "text-rose-700 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-rose-600" : "text-rose-600 hover:text-rose-800"}`}
+            >
+              Sale
             </Link>
             <Link
               href="/shop?category=men"
@@ -313,6 +321,14 @@ export default function Navbar() {
               className={`rounded-lg px-3 py-2 transition ${allProductsActive ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
             >
               All Products
+            </Link>
+            <Link
+              href="/shop?saleOnly=true"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-current={saleActive ? "page" : undefined}
+              className={`rounded-lg px-3 py-2 font-semibold transition ${saleActive ? "bg-rose-50 text-rose-700" : "text-rose-600 hover:bg-rose-50"}`}
+            >
+              Sale
             </Link>
             <Link
               href="/shop?category=men"

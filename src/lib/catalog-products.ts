@@ -10,6 +10,7 @@ const CACHE_TTL = 60;
 export type CatalogQuery = {
   search?: string;
   category?: string;
+  saleOnly?: string;
   minPrice?: string;
   maxPrice?: string;
   sort?: string;
@@ -46,9 +47,10 @@ export type CatalogResult = {
 
 function buildCacheKey(query: z.infer<typeof catalogQuerySchema>) {
   return [
-    "velora:products:v3",
+    "velora:products:v4",
     query.search,
     query.category,
+    query.saleOnly ?? "",
     query.minPrice ?? "",
     query.maxPrice ?? "",
     query.sort,
@@ -135,6 +137,10 @@ export async function getCatalogProducts(
         },
       ],
     });
+  }
+
+  if (query.saleOnly === "true") {
+    andConditions.push({ salePrice: { not: null } });
   }
 
   const where = {

@@ -30,7 +30,10 @@ function formatPrice(price: number | string) {
   })}`;
 }
 
-export default function ProductCard({ product, isSaved = false }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  isSaved = false,
+}: ProductCardProps) {
   const discountPercent = getDiscountPercent(product);
 
   return (
@@ -47,42 +50,74 @@ export default function ProductCard({ product, isSaved = false }: ProductCardPro
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-stone-400">
-              <span className="text-2xl" aria-hidden="true">✳</span>
+              <span className="text-2xl" aria-hidden="true">
+                ✳
+              </span>
               <span>Image coming soon</span>
             </div>
           )}
           {product.totalStock > 0 && product.totalStock < 5 && (
-            <span className={`absolute left-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-stone-700 shadow-sm backdrop-blur ${discountPercent !== null ? "bottom-3" : "top-3"}`}>
+            <span
+              className={`absolute left-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-stone-700 shadow-sm backdrop-blur ${discountPercent !== null ? "bottom-3" : "top-3"}`}
+            >
               Almost gone
             </span>
           )}
           {discountPercent !== null && (
             <span
               aria-label={`${discountPercent}% off`}
-              className="absolute left-3 top-3 z-10 flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 border-white bg-rose-700 text-white shadow-lg ring-1 ring-rose-950/15"
+              className="absolute left-3 top-3 z-10 flex h-12 w-12 flex-col items-center justify-center rounded-full border-2 border-white bg-rose-700 text-white shadow-lg ring-1 ring-rose-950/15"
             >
-              <span className="text-base font-extrabold leading-none">{discountPercent}%</span>
-              <span className="mt-0.5 text-[9px] font-bold uppercase leading-none tracking-[0.12em]">Off</span>
+              <span className="text-sm font-extrabold leading-none">
+                {discountPercent}%
+              </span>
+              <span className="mt-0.5 text-[8px] font-bold uppercase leading-none tracking-[0.1em]">
+                Off
+              </span>
             </span>
           )}
-          <span className="absolute bottom-3 right-3 hidden h-9 w-9 items-center justify-center rounded-full bg-white/95 text-stone-800 shadow-sm transition group-hover:flex group-focus-visible:flex" aria-hidden="true">
+          <span
+            className="absolute bottom-3 right-3 hidden h-9 w-9 items-center justify-center rounded-full bg-white/95 text-stone-800 shadow-sm transition group-hover:flex group-focus-visible:flex"
+            aria-hidden="true"
+          >
             <ArrowUpRight size={17} />
           </span>
         </div>
 
         <div className="px-0.5 pt-3.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-            {product.subCategory ? getCategoryDisplayName(product.subCategory) : getCategoryDisplayName(product.category)}
+            {product.subCategory
+              ? getCategoryDisplayName(product.subCategory)
+              : getCategoryDisplayName(product.category)}
           </p>
 
           <h2 className="mt-1.5 line-clamp-2 min-h-10 text-sm font-medium leading-5 text-stone-900 transition-colors group-hover:text-stone-600 sm:text-[15px]">
             {product.name}
           </h2>
 
-          <div className="mt-2 flex items-baseline gap-2"><p className="text-sm font-semibold tracking-tight text-stone-950">{formatPrice(getCurrentPrice(product))}</p>{getDiscountPercent(product) !== null && <><span className="text-xs text-stone-500 line-through">{formatPrice(product.price)}</span><span className="text-[10px] font-semibold text-rose-700">{getDiscountPercent(product)}% OFF</span></>}</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className="text-sm font-semibold tracking-tight text-stone-950">
+              {formatPrice(getCurrentPrice(product))}
+            </p>
+            {getDiscountPercent(product) !== null && (
+              <>
+                <span className="text-xs text-stone-500 line-through">
+                  {formatPrice(product.price)}
+                </span>
+                <span className="text-[10px] font-semibold text-rose-700">
+                  {getDiscountPercent(product)}% OFF
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </Link>
-      <WishlistButton key={`${product.id}-${isSaved}`} productId={product.id} productName={product.name} initialSaved={isSaved} />
+      <WishlistButton
+        key={`${product.id}-${isSaved}`}
+        productId={product.id}
+        productName={product.name}
+        initialSaved={isSaved}
+      />
     </article>
   );
 }

@@ -25,6 +25,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     getCatalogProducts({
       search: getValue(params.search),
       category: getValue(params.category),
+      saleOnly: getValue(params.saleOnly),
       minPrice: getValue(params.minPrice),
       maxPrice: getValue(params.maxPrice),
       sort: getValue(params.sort),
@@ -65,6 +66,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const selectedCategoryName = selectedCategoryRecord
     ? getCategoryDisplayName(selectedCategoryRecord)
     : undefined;
+  const saleOnly = getValue(params.saleOnly) === "true";
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -72,10 +74,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         <div className="mb-8 border-b border-stone-200 pb-7">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Velora / Clothing</p>
           <h1 className="mt-3 text-3xl font-medium tracking-tight text-stone-950 sm:text-4xl">
-            {selectedCategoryName ? `${selectedCategoryName} collection` : "The everyday collection"}
+            {saleOnly ? "The Sale Edit" : selectedCategoryName ? `${selectedCategoryName} collection` : "The everyday collection"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-            {selectedCategoryName ? `Explore the latest ${selectedCategoryName.toLowerCase()} styles.` : "Considered essentials for the way you live, made for comfort and everyday wear."}
+            {saleOnly ? "Discover considered styles at special prices, while they last." : selectedCategoryName ? `Explore the latest ${selectedCategoryName.toLowerCase()} styles.` : "Considered essentials for the way you live, made for comfort and everyday wear."}
           </p>
         </div>
 
@@ -83,7 +85,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
         <div className="mt-8 flex items-center justify-between border-b border-stone-200 pb-3">
           <p className="text-sm text-stone-600">
-            {catalog.pagination.total} {selectedCategoryName ? `${selectedCategoryName.toLowerCase()} ` : ""}items
+            {catalog.pagination.total} {saleOnly ? "sale items" : selectedCategoryName ? `${selectedCategoryName.toLowerCase()} items` : "items"}
           </p>
           <p className="text-xs text-stone-500">Prices shown in LKR</p>
         </div>
@@ -95,7 +97,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             </h2>
 
             <p className="mt-2 text-sm text-stone-500">
-              {selectedCategoryName ? `There are no ${selectedCategoryName.toLowerCase()} items matching these filters.` : "Try changing your search or filter options."}
+              {saleOnly ? "There are no discounted items available right now. Please check back soon." : selectedCategoryName ? `There are no ${selectedCategoryName.toLowerCase()} items matching these filters.` : "Try changing your search or filter options."}
             </p>
           </div>
         ) : (
