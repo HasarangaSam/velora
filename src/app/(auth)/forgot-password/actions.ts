@@ -7,6 +7,7 @@ import { sendPasswordResetEmail } from "@/lib/email";
 import { headers } from "next/headers";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import { strongPasswordSchema } from "@/lib/validation/password";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared types
@@ -83,7 +84,6 @@ export async function requestPasswordReset(
         to: email,
         name: user.name ?? undefined,
         resetUrl,
-        otp: token.slice(0, 6).toUpperCase(), // friendly short code shown in email
       });
     }
 
@@ -110,10 +110,7 @@ export async function requestPasswordReset(
 const resetPasswordSchema = z
   .object({
     token: z.string().min(1, "Reset token is missing."),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters.")
-      .max(100, "Password must be under 100 characters."),
+    password: strongPasswordSchema,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {

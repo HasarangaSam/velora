@@ -79,7 +79,7 @@ export default function OrderStatusUpdater({
         {state.message && (
           <p
             className={`text-xs font-medium animate-fade-in ${
-              state.success ? "text-blue-600" : "text-red-600"
+              state.success ? "text-blue-600" : "text-rose-600"
             }`}
           >
             {state.message}

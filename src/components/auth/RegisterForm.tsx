@@ -149,9 +149,12 @@ export default function RegisterForm() {
                 type={showPassword ? "text" : "password"}
                 required
                 minLength={8}
+                maxLength={100}
+                pattern={"(?=.*[A-Z])(?=.*[^A-Za-z0-9\\s]).{8,100}"}
+                title="Use at least 8 characters, including an uppercase letter and a symbol."
                 autoComplete="new-password"
                 className="w-full rounded-lg border border-slate-300 py-3 pl-10 pr-12 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="At least 8 characters"
+                placeholder="Create a strong password"
               />
 
               <button
@@ -163,6 +166,7 @@ export default function RegisterForm() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            <p className="mt-1 text-xs text-slate-500">At least 8 characters, one uppercase letter, and one symbol.</p>
             {state.errors?.password && (
               <p className="mt-1 text-xs text-red-600">
                 {state.errors.password[0]}
@@ -190,6 +194,7 @@ export default function RegisterForm() {
                 type={showConfirmPassword ? "text" : "password"}
                 required
                 minLength={8}
+                maxLength={100}
                 autoComplete="new-password"
                 className="w-full rounded-lg border border-slate-300 py-3 pl-10 pr-12 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 placeholder="Re-enter your password"

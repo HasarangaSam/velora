@@ -32,7 +32,7 @@ export default function DeleteCategoryButton({ categoryId }: Props) {
       type="button"
       onClick={handleDelete}
       disabled={isPending}
-      className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+      className="text-sm font-medium text-rose-600 hover:text-rose-700 disabled:opacity-50"
     >
       {isPending ? "Deleting..." : "Delete"}
     </button>

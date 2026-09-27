@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -15,11 +18,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+        # Prisma may read DATABASE_URL during its install-time client generation.
         env:
           DATABASE_URL: postgresql://build:build@localhost:5432/build
+
+      - name: Check TypeScript types
+        run: npm run typecheck
 
       - name: Run lint
         run: npm run lint
@@ -32,3 +40,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://build:build@localhost:5432/build
           AUTH_SECRET: build-only-placeholder-secret
+
+      # Build, but do not publish, the production image on every change.
+      - name: Build Docker image
+        run: docker build --tag velora:ci .

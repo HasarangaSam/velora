@@ -39,7 +39,7 @@ export default function CategoryForm({
           className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
         {state.errors?.name && (
-          <p className="mt-1 text-sm text-red-600">{state.errors.name[0]}</p>
+          <p className="mt-1 text-sm text-rose-600">{state.errors.name[0]}</p>
         )}
       </div>
 
@@ -59,7 +59,7 @@ export default function CategoryForm({
           className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
         {state.errors?.slug && (
-          <p className="mt-1 text-sm text-red-600">{state.errors.slug[0]}</p>
+          <p className="mt-1 text-sm text-rose-600">{state.errors.slug[0]}</p>
         )}
       </div>
 
@@ -91,8 +91,8 @@ export default function CategoryForm({
         <p
           className={`rounded-lg px-4 py-3 text-sm ${
             state.success
-              ? "bg-green-50 text-green-700"
-              : "bg-red-50 text-red-700"
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-rose-50 text-rose-700"
           }`}
         >
           {state.message}

@@ -225,7 +225,7 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-medium ${
                               product.isActive
-                                ? "bg-green-50 text-green-700"
+                                ? "bg-emerald-50 text-emerald-700"
                                 : "bg-slate-100 text-slate-600"
                             }`}
                           >

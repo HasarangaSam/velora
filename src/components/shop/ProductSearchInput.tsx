@@ -10,6 +10,8 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (value: string) => void;
+  onClear?: () => void;
+  onSelect?: (product: Suggestion) => void;
   placeholder?: string;
   className?: string;
   inputClassName?: string;
@@ -19,7 +21,7 @@ type Props = {
 };
 
 export default function ProductSearchInput({
-  value, onChange, onSubmit, placeholder = "Search products...", className = "", inputClassName = "",
+  value, onChange, onSubmit, onClear, onSelect, placeholder = "Search products...", className = "", inputClassName = "",
   id, label, onFocusChange,
 }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -88,8 +90,17 @@ export default function ProductSearchInput({
           className={`w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-9 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100 ${value ? "pr-10" : "pr-3"} ${inputClassName}`}
         />
         {value && (
-          <button type="button" aria-label="Clear search" onClick={() => { onChange(""); setSuggestions([]); setOpen(false); }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={() => {
+              onChange("");
+              setSuggestions([]);
+              setOpen(false);
+              onClear?.();
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
@@ -97,8 +108,18 @@ export default function ProductSearchInput({
       {open && value.trim().length >= 2 && (
         <div id={listboxId} role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl">
           {(suggestionQuery === value.trim() ? suggestions : []).map((product) => (
-            <Link key={product.slug} role="option" href={`/products/${product.slug}`} onClick={() => setOpen(false)}
-              className="flex items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-0 hover:bg-stone-50">
+            <Link
+              key={product.slug}
+              role="option"
+              href={`/products/${product.slug}`}
+              onClick={() => {
+                setOpen(false);
+                onChange("");
+                setSuggestions([]);
+                onSelect?.(product);
+              }}
+              className="flex items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-0 hover:bg-stone-50"
+            >
               <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-stone-100">
                 {product.image && <Image src={product.image} alt="" width={40} height={48} className="h-full w-full object-cover" />}
               </div>

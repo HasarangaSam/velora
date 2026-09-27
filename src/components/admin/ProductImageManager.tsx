@@ -419,7 +419,7 @@ export default function ProductImageManager({
                   disabled={busyImageId === image.id || images.length <= 1}
                   onClick={() => deleteImage(image)}
                   title={images.length <= 1 ? "A product must have at least one image." : undefined}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Trash2 className="h-4 w-4" />
                   Delete image
@@ -434,8 +434,8 @@ export default function ProductImageManager({
         <div
           className={`mt-6 rounded-lg border px-4 py-3 text-sm ${
             error
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-green-200 bg-green-50 text-green-700"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
           }`}
         >
           {message}

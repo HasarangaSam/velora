@@ -107,12 +107,10 @@ export async function sendPasswordResetEmail({
   to,
   name,
   resetUrl,
-  otp,
 }: {
   to: string;
   name?: string;
   resetUrl: string;
-  otp: string;
 }) {
   const greeting = name ? `Hi ${name},` : "Hello,";
 
@@ -145,18 +143,8 @@ export async function sendPasswordResetEmail({
         </a>
       </div>
 
-      <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 16px;">
-        Alternatively, enter this 6-digit security code on the reset page:
-      </p>
-
-      <div style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 24px;">
-        <span style="font-family: 'Courier New', Courier, monospace; font-size: 22px; font-weight: 700; letter-spacing: 0.2em; color: #0f172a;">
-          ${otp}
-        </span>
-      </div>
-
       <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin-bottom: 24px;">
-        This link and code will expire in <strong>15 minutes</strong>. If you did not request a password reset, you can safely disregard this email—your account remains secure.
+        This link will expire in <strong>15 minutes</strong>. If you did not request a password reset, you can safely disregard this email—your account remains secure.
       </p>
 
       <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; text-align: center;">
@@ -177,14 +165,14 @@ export async function sendPasswordResetEmail({
       to,
       subject: `Reset your Velora password`,
       html,
-      text: `Reset your Velora password here: ${resetUrl} or use code: ${otp}`,
+      text: `Reset your Velora password here: ${resetUrl}`,
     });
     console.log(`[EMAIL] Password reset email sent to ${to}`);
     return { success: true };
   } catch (error) {
     console.warn(`[EMAIL WARNING] Failed to send password reset email to ${to}:`, error);
-    console.log(`[EMAIL FALLBACK] Password reset URL: ${resetUrl} (Code: ${otp})`);
-    return { success: true, fallbackUrl: resetUrl, fallbackOtp: otp };
+    console.log(`[EMAIL FALLBACK] Password reset URL: ${resetUrl}`);
+    return { success: true, fallbackUrl: resetUrl };
   }
 }
 

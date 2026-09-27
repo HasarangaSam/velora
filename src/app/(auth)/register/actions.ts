@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { checkRateLimit } from "@/lib/redis";
 import { sendVerificationOtpEmail } from "@/lib/email";
+import { strongPasswordSchema } from "@/lib/validation/password";
 import { headers } from "next/headers";
 import crypto from "crypto";
 
@@ -31,10 +32,7 @@ const registerSchema = z.object({
     .trim()
     .email("Please provide a valid email address.")
     .max(255, "Email is too long."),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters.")
-    .max(100, "Password must be under 100 characters."),
+  password: strongPasswordSchema,
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",

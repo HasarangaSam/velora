@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
 
-export async function getProductReviewData(productId: string, userId?: string) {
+export async function getProductReviewData(productId: string, userId?: string, take = 5) {
   const [reviews, aggregate, distribution, canReview, currentReview] = await Promise.all([
     prisma.productReview.findMany({
       where: { productId, status: "APPROVED" },
       orderBy: { createdAt: "desc" },
-      take: 12,
+      take,
       select: {
         id: true,
         rating: true,
@@ -44,7 +44,10 @@ export async function getProductReviewData(productId: string, userId?: string) {
   ]);
 
   return {
-    reviews,
+    reviews: reviews.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+    })),
     average: aggregate._avg.rating ?? 0,
     count: aggregate._count._all,
     distribution: Object.fromEntries(distribution.map((entry) => [entry.rating, entry._count.rating])) as Record<number, number>,

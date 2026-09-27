@@ -1,4 +1,27 @@
-export const PRODUCT_SIZES = ["One Size", "XS", "S", "M", "L", "XL", "XXL"];
+// Presets cover common apparel, kids' and waist sizes. Admins can also enter
+// other labels (for example, waist measurements in centimetres) in the forms.
+export const PRODUCT_SIZES = [
+  "One Size",
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "26",
+  "28",
+  "30",
+  "32",
+  "34",
+  "36",
+  "38",
+  "40",
+  "42",
+  "44",
+  "3-4Y",
+  "5-6Y",
+  "7-8Y",
+];
 
 export const PRODUCT_COLOURS = [
   "Black",

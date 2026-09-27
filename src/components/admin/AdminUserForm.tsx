@@ -79,8 +79,8 @@ export default function AdminUserForm({ user, isSelf = false }: { user?: AdminUs
           {!user && (
             <div className="sm:col-span-2">
               <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700">Initial password</label>
-              <input id="password" name="password" type="password" required minLength={8} maxLength={100} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-600 focus:ring-2 focus:ring-slate-100" />
-              <p className="mt-1.5 text-xs text-slate-500">Use at least 8 characters. The user can change it later in account settings.</p>
+              <input id="password" name="password" type="password" required minLength={8} maxLength={100} pattern={"(?=.*[A-Z])(?=.*[^A-Za-z0-9\\s]).{8,100}"} title="Use at least 8 characters, including an uppercase letter and a symbol." autoComplete="new-password" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-600 focus:ring-2 focus:ring-slate-100" />
+              <p className="mt-1.5 text-xs text-slate-500">At least 8 characters, one uppercase letter, and one symbol. The user can change it later in account settings.</p>
               {state.errors?.password && <p className="mt-1 text-sm text-rose-600">{state.errors.password[0]}</p>}
             </div>
           )}

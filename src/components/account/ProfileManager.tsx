@@ -123,7 +123,8 @@ export default function ProfileManager({ profile }: {
             </div>
             <div>
               <label htmlFor="newPassword" className="mb-2 block text-sm font-medium text-stone-700">New password</label>
-              <input id="newPassword" name="newPassword" type="password" autoComplete="new-password" minLength={8} maxLength={100} required className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-700 focus:ring-2 focus:ring-stone-100" />
+              <input id="newPassword" name="newPassword" type="password" autoComplete="new-password" minLength={8} maxLength={100} pattern={"(?=.*[A-Z])(?=.*[^A-Za-z0-9\\s]).{8,100}"} title="Use at least 8 characters, including an uppercase letter and a symbol." required className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm outline-none focus:border-stone-700 focus:ring-2 focus:ring-stone-100" />
+              <p className="mt-1 text-xs text-stone-500">At least 8 characters, one uppercase letter, and one symbol.</p>
               {passwordState.errors?.newPassword && <p className="mt-1 text-sm text-rose-600">{passwordState.errors.newPassword[0]}</p>}
             </div>
             <div>

@@ -293,18 +293,30 @@ export default function EditProductForm({
                   </label>
 
                   <select
-                    value={variant.size}
-                    onChange={(event) =>
-                      updateVariant(index, "size", event.target.value)
-                    }
+                    value={PRODUCT_SIZES.includes(variant.size) ? variant.size : "__custom__"}
+                    onChange={(event) => {
+                      updateVariant(index, "size", event.target.value === "__custom__" ? "" : event.target.value);
+                    }}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
                   >
                     {PRODUCT_SIZES.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
+                      <option key={size} value={size}>{size}</option>
                     ))}
+                    <option value="__custom__">Custom size…</option>
                   </select>
+                  {!PRODUCT_SIZES.includes(variant.size) && (
+                    <input
+                      type="text"
+                      value={variant.size}
+                      onChange={(event) =>
+                        updateVariant(index, "size", event.target.value)
+                      }
+                      maxLength={20}
+                      required
+                      placeholder="Enter size"
+                      className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -368,7 +380,7 @@ export default function EditProductForm({
                 <button
                   type="button"
                   onClick={() => removeVariant(index)}
-                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                  className="text-sm font-medium text-rose-600 hover:text-rose-700"
                 >
                   Remove variant
                 </button>
@@ -382,8 +394,8 @@ export default function EditProductForm({
         <div
           className={`rounded-lg border px-4 py-3 text-sm ${
             !state.success
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-green-200 bg-green-50 text-green-700"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
           }`}
         >
           {state.message}

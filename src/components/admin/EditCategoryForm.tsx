@@ -41,7 +41,7 @@ export default function EditCategoryForm({ category }: Props) {
           required
         />
         {state.errors?.name && (
-          <p className="mt-1 text-xs text-red-600">{state.errors.name[0]}</p>
+          <p className="mt-1 text-xs text-rose-600">{state.errors.name[0]}</p>
         )}
       </div>
 
@@ -56,7 +56,7 @@ export default function EditCategoryForm({ category }: Props) {
           required
         />
         {state.errors?.slug && (
-          <p className="mt-1 text-xs text-red-600">{state.errors.slug[0]}</p>
+          <p className="mt-1 text-xs text-rose-600">{state.errors.slug[0]}</p>
         )}
       </div>
 
@@ -69,7 +69,7 @@ export default function EditCategoryForm({ category }: Props) {
       {state.message && (
         <p
           className={`text-xs font-medium ${
-            state.success ? "text-green-600" : "text-red-600"
+            state.success ? "text-emerald-600" : "text-rose-600"
           }`}
         >
           {state.message}

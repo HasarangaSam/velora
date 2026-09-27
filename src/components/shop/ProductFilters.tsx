@@ -42,12 +42,12 @@ function ProductFiltersForm({
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(initialSearch);
+  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") ?? "");
+  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") ?? "");
   const searchParamsString = searchParams.toString();
 
   const category = searchParams.get("category") ?? "";
   const sort = searchParams.get("sort") ?? "newest";
-  const minPrice = searchParams.get("minPrice") ?? "";
-  const maxPrice = searchParams.get("maxPrice") ?? "";
 
   function updateFilters(updates: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -70,14 +70,34 @@ function ProductFiltersForm({
       const params = new URLSearchParams(searchParamsString);
       const nextSearch = search.trim();
       const currentSearch = params.get("search") ?? "";
+      const nextMinPrice = minPrice.trim();
+      const nextMaxPrice = maxPrice.trim();
+      const currentMinPrice = params.get("minPrice") ?? "";
+      const currentMaxPrice = params.get("maxPrice") ?? "";
+
       if (nextSearch) params.set("search", nextSearch);
       else params.delete("search");
-      if (nextSearch !== currentSearch) params.delete("page");
+      if (nextMinPrice) params.set("minPrice", nextMinPrice);
+      else params.delete("minPrice");
+      if (nextMaxPrice) params.set("maxPrice", nextMaxPrice);
+      else params.delete("maxPrice");
+
+      if (
+        nextSearch !== currentSearch ||
+        nextMinPrice !== currentMinPrice ||
+        nextMaxPrice !== currentMaxPrice
+      ) {
+        params.delete("page");
+      }
+
       const next = params.toString();
-      if (next !== searchParamsString) router.replace(`/shop${next ? `?${next}` : ""}`, { scroll: false });
-    }, 280);
+      if (next !== searchParamsString) {
+        router.replace(`/shop${next ? `?${next}` : ""}`, { scroll: false });
+      }
+    }, 300);
+
     return () => window.clearTimeout(timer);
-  }, [router, search, searchParamsString]);
+  }, [router, search, minPrice, maxPrice, searchParamsString]);
 
   const activeCollection = categories.find((item) =>
     item.slug === category || item.children?.some((child) => child.slug === category),
@@ -92,8 +112,20 @@ function ProductFiltersForm({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-        <ProductSearchInput id="search" label="Search" value={search} onChange={setSearch}
-          onSubmit={(value) => { setSearch(value); updateFilters({ search: value.trim() }); }} />
+        <ProductSearchInput
+          id="search"
+          label="Search"
+          value={search}
+          onChange={setSearch}
+          onSubmit={(value) => {
+            setSearch(value);
+            updateFilters({ search: value.trim() });
+          }}
+          onClear={() => {
+            setSearch("");
+            updateFilters({ search: "" });
+          }}
+        />
 
         <div>
           <label
@@ -147,11 +179,7 @@ function ProductFiltersForm({
             type="number"
             min="0"
             value={minPrice}
-            onChange={(event) =>
-              updateFilters({
-                minPrice: event.target.value,
-              })
-            }
+            onChange={(event) => setMinPrice(event.target.value)}
             placeholder="0"
             className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           />
@@ -170,11 +198,7 @@ function ProductFiltersForm({
             type="number"
             min="0"
             value={maxPrice}
-            onChange={(event) =>
-              updateFilters({
-                maxPrice: event.target.value,
-              })
-            }
+            onChange={(event) => setMaxPrice(event.target.value)}
             placeholder="100000"
             className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           />
@@ -206,7 +230,7 @@ function ProductFiltersForm({
         </div>
       </div>
       {(category || minPrice || maxPrice || searchParams.get("search")) && (
-        <button type="button" onClick={() => { setSearch(""); updateFilters({ category: "", minPrice: "", maxPrice: "", search: "" }); }}
+        <button type="button" onClick={() => { setSearch(""); setMinPrice(""); setMaxPrice(""); updateFilters({ category: "", minPrice: "", maxPrice: "", search: "" }); }}
           className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-stone-600 hover:text-stone-950">
           <X className="h-3.5 w-3.5" /> Clear filters
         </button>

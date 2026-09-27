@@ -38,6 +38,27 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [wishlistCount, setWishlistCount] = useState(0);
 
+  const urlSearch = searchParams.get("search") ?? "";
+
+  useEffect(() => {
+    if (pathname === "/shop") {
+      setSearchQuery(urlSearch);
+    } else {
+      setSearchQuery("");
+    }
+  }, [pathname, urlSearch]);
+
+  function handleClearSearch() {
+    setSearchQuery("");
+    if (pathname === "/shop" && searchParams.get("search")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("search");
+      params.delete("page");
+      const next = params.toString();
+      router.push(`/shop${next ? `?${next}` : ""}`);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -140,9 +161,16 @@ export default function Navbar() {
           </nav>
 
           {/* Search Bar */}
-          <ProductSearchInput value={searchQuery} onChange={setSearchQuery} onSubmit={(value) => {
-            if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
-          }} className="hidden lg:block flex-1 max-w-xs" inputClassName="rounded-full bg-slate-50 py-2 text-xs focus:border-blue-600 focus:bg-white" />
+          <ProductSearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSubmit={(value) => {
+              if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
+            }}
+            onClear={handleClearSearch}
+            className="hidden lg:block flex-1 max-w-xs"
+            inputClassName="rounded-full bg-slate-50 py-2 text-xs focus:border-blue-600 focus:bg-white"
+          />
 
           {/* Actions: Account, Wishlist & Cart */}
           <div className="flex items-center gap-4">
@@ -261,10 +289,17 @@ export default function Navbar() {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-4">
-          <ProductSearchInput value={searchQuery} onChange={setSearchQuery} onSubmit={(value) => {
-            if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
-            setMobileMenuOpen(false);
-          }} inputClassName="text-xs" />
+          <ProductSearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSubmit={(value) => {
+              if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
+              setMobileMenuOpen(false);
+            }}
+            onClear={handleClearSearch}
+            onSelect={() => setMobileMenuOpen(false)}
+            inputClassName="text-xs"
+          />
 
           <nav className="flex flex-col space-y-1 text-sm font-medium">
             <Link

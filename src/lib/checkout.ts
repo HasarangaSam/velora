@@ -1,4 +1,4 @@
-export const SHIPPING_COST = 350;
+export const SHIPPING_COST = 400;
 export const FREE_SHIPPING_THRESHOLD = 10000;
 
 export function calculateShipping(subtotal: number) {

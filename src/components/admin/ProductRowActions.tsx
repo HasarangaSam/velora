@@ -36,7 +36,7 @@ export default function ProductRowActions({ productId }: { productId: string }) 
           onClick={handleDelete}
           disabled={isPending}
           aria-label="Delete product"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 transition hover:text-red-800 disabled:cursor-wait disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-rose-600 transition hover:text-rose-800 disabled:cursor-wait disabled:opacity-60"
         >
           {isPending ? <LoaderCircle size={15} className="animate-spin" /> : <Trash2 size={15} />}
           {isPending ? "Deleting…" : "Delete"}

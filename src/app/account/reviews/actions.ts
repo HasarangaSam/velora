@@ -135,3 +135,38 @@ export async function deleteProductReview(reviewId: string): Promise<ProductRevi
     return { ...emptyState, message: "Unable to delete your review." };
   }
 }
+
+export async function getMoreProductReviews(
+  productId: string,
+  skip: number,
+  take: number = 5,
+) {
+  try {
+    const reviews = await prisma.productReview.findMany({
+      where: { productId, status: "APPROVED" },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        rating: true,
+        title: true,
+        comment: true,
+        verifiedPurchase: true,
+        createdAt: true,
+        user: { select: { name: true } },
+      },
+    });
+
+    return {
+      success: true,
+      reviews: reviews.map((r) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    };
+  } catch (error) {
+    console.error("Failed to load more reviews:", error);
+    return { success: false, reviews: [] };
+  }
+}

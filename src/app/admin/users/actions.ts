@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcrypt";
+import { strongPasswordSchema } from "@/lib/validation/password";
 import { randomInt } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -47,7 +48,7 @@ export async function saveAdminUser(
     }
 
     if (!userId) {
-      const createResult = z.object({ password: z.string().min(8, "Use at least 8 characters.").max(100) })
+      const createResult = z.object({ password: strongPasswordSchema })
         .safeParse({ password: formData.get("password") });
 
       if (!createResult.success) {

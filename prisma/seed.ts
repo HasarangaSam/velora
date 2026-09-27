@@ -50,17 +50,37 @@ async function main() {
   const hashedPasswordCustomer = await bcrypt.hash("customer123", 12);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const adminGmail = await prisma.user.upsert({
+    where: { email: "admin@gmail.com" },
+    update: {
+      name: "Admin",
+      role: "ADMIN",
+      password: hashedPasswordAdmin,
+      emailVerified: new Date(),
+    },
+    create: {
+      email: "admin@gmail.com",
+      name: "Admin",
+      password: hashedPasswordAdmin,
+      role: "ADMIN",
+      emailVerified: new Date(),
+    },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _admin = await prisma.user.upsert({
     where: { email: "admin@velora.lk" },
     update: {
       role: "ADMIN",
       password: hashedPasswordAdmin,
+      emailVerified: new Date(),
     },
     create: {
       email: "admin@velora.lk",
       name: "Velora Admin",
       password: hashedPasswordAdmin,
       role: "ADMIN",
+      emailVerified: new Date(),
     },
   });
 
@@ -68,12 +88,14 @@ async function main() {
     where: { email: "customer@velora.lk" },
     update: {
       password: hashedPasswordCustomer,
+      emailVerified: new Date(),
     },
     create: {
       email: "customer@velora.lk",
       name: "Kasun Perera",
       password: hashedPasswordCustomer,
       role: "USER",
+      emailVerified: new Date(),
     },
   });
 

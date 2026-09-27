@@ -139,7 +139,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
             className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           {state.errors?.name && (
-            <p className="mt-1 text-sm text-red-600">{state.errors.name[0]}</p>
+            <p className="mt-1 text-sm text-rose-600">{state.errors.name[0]}</p>
           )}
         </div>
 
@@ -164,7 +164,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
             ))}
           </select>
           {state.errors?.categoryId && (
-            <p className="mt-1 text-sm text-red-600">{state.errors.categoryId[0]}</p>
+            <p className="mt-1 text-sm text-rose-600">{state.errors.categoryId[0]}</p>
           )}
         </div>
       </div>
@@ -204,7 +204,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
         {state.errors?.description && (
-          <p className="mt-1 text-sm text-red-600">{state.errors.description[0]}</p>
+          <p className="mt-1 text-sm text-rose-600">{state.errors.description[0]}</p>
         )}
       </div>
 
@@ -253,14 +253,28 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                 <label className="space-y-1 text-xs font-medium text-slate-600">
                   Size / fit
                   <select
-                    value={variant.size}
-                    onChange={(e) => updateVariant(index, "size", e.target.value)}
+                    value={PRODUCT_SIZES.includes(variant.size) ? variant.size : "__custom__"}
+                    onChange={(e) => {
+                      updateVariant(index, "size", e.target.value === "__custom__" ? "" : e.target.value);
+                    }}
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"
                   >
                     {PRODUCT_SIZES.map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
+                    <option value="__custom__">Custom size…</option>
                   </select>
+                  {!PRODUCT_SIZES.includes(variant.size) && (
+                    <input
+                      type="text"
+                      value={variant.size}
+                      onChange={(e) => updateVariant(index, "size", e.target.value)}
+                      maxLength={20}
+                      required
+                      placeholder="Enter size"
+                      className="mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"
+                    />
+                  )}
                 </label>
 
                 <label className="space-y-1 text-xs font-medium text-slate-600">
@@ -310,7 +324,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                   onClick={() =>
                     setVariants((cur) => cur.filter((_, i) => i !== index))
                   }
-                  className="mt-3 text-xs font-medium text-red-600 hover:text-red-700"
+                  className="mt-3 text-xs font-medium text-rose-600 hover:text-rose-700"
                 >
                   Remove variant
                 </button>
@@ -370,7 +384,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                     const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
                     imagePreviewUrls.current = nextImages.map((selectedImage) => selectedImage.previewUrl);
                     setImages(nextImages);
-                  }} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm transition hover:bg-red-50 hover:text-red-700">
+                  }} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm transition hover:bg-rose-50 hover:text-rose-700">
                     <X size={16} aria-hidden="true" />
                   </button>
                   <div className="truncate border-t border-slate-200 bg-white px-3 py-2 text-xs text-slate-600" title={image.file.name}>
@@ -389,7 +403,7 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
       {state.message && (
         <p
           className={`rounded-lg px-4 py-3 text-sm ${
-            state.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+            state.success ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
           }`}
         >
           {state.message}

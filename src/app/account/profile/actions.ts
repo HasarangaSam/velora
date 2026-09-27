@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcrypt";
+import { strongPasswordSchema } from "@/lib/validation/password";
 import { randomInt } from "crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
@@ -123,7 +124,7 @@ export async function changeMyPassword(
     const user = await requireUser();
     const result = z.object({
       currentPassword: z.string().min(1, "Enter your current password."),
-      newPassword: z.string().min(8, "Use at least 8 characters.").max(100),
+      newPassword: strongPasswordSchema,
       confirmPassword: z.string().min(1, "Confirm your new password."),
     }).refine((value) => value.newPassword === value.confirmPassword, {
       path: ["confirmPassword"],

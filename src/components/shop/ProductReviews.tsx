@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { BadgeCheck, MessageSquareText, Star } from "lucide-react";
+import { MessageSquareText, Star } from "lucide-react";
 import ReviewForm from "@/components/shop/ReviewForm";
 import StarRating from "@/components/shop/StarRating";
+import ProductReviewsList from "@/components/shop/ProductReviewsList";
 import { getProductReviewData } from "@/lib/reviews";
 
 export default async function ProductReviews({ productId, productSlug, userId }: { productId: string; productSlug: string; userId?: string }) {
@@ -48,26 +49,12 @@ export default async function ProductReviews({ productId, productSlug, userId }:
 
       <div className="mt-9 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.75fr)]">
         <div>
-          {data.reviews.length ? (
-            <div className="divide-y divide-slate-200 border-y border-slate-200">
-              {data.reviews.map((review) => (
-                <article key={review.id} className="py-6">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <StarRating rating={review.rating} size={15} />
-                    <time className="text-xs text-slate-500" dateTime={review.createdAt.toISOString()}>{review.createdAt.toLocaleDateString("en-LK", { day: "numeric", month: "short", year: "numeric" })}</time>
-                  </div>
-                  <h3 className="mt-3 font-semibold text-slate-900">{review.title}</h3>
-                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{review.comment}</p>
-                  <p className="mt-4 flex items-center gap-1.5 text-xs font-medium text-slate-500">
-                    {review.user.name ?? "Velora customer"}
-                    {review.verifiedPurchase && <><span className="text-slate-300">·</span><span className="inline-flex items-center gap-1 text-emerald-700"><BadgeCheck size={14} /> Verified purchase</span></>}
-                  </p>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-slate-300 px-5 py-8 text-sm text-slate-500">No approved reviews yet.</div>
-          )}
+          <ProductReviewsList
+            productId={productId}
+            initialReviews={data.reviews}
+            totalCount={data.count}
+            pageSize={5}
+          />
         </div>
 
         <aside className="h-fit rounded-xl border border-slate-200 bg-white p-5 sm:p-6">

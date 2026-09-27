@@ -3,14 +3,21 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Tag, X, XCircle } from "lucide-react";
 
 import AddressSelector, {
   type CheckoutAddress,
 } from "@/components/checkout/AddressSelector";
 import { useCartStore } from "@/store";
+import { SHIPPING_COST } from "@/lib/checkout";
 
 import type { CartData } from "@/types/cart";
+
+type CouponState =
+  | { status: "idle" }
+  | { status: "validating" }
+  | { status: "valid"; code: string; discount: number; shippingCost: number; total: number }
+  | { status: "invalid"; message: string };
 
 export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: string; quantity: number } }) {
   const router = useRouter();
@@ -23,16 +30,18 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
   );
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [couponCode, setCouponCode] = useState("");
+  const [coupon, setCoupon] = useState<CouponState>({ status: "idle" });
   const checkoutRequest = useRef<{ fingerprint: string; key: string } | null>(null);
 
   const loadCheckoutData = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
+      setLoadError("");
 
       const cartUrl = buyNowVariantId
         ? `/api/cart?buyNowVariantId=${encodeURIComponent(buyNowVariantId)}&quantity=${buyNowQuantity}`
@@ -69,7 +78,7 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
 
       setSelectedAddressId(defaultAddress?.id ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load checkout.");
+      setLoadError(err instanceof Error ? err.message : "Unable to load checkout.");
     } finally {
       setLoading(false);
     }
@@ -87,19 +96,78 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
 
   const clearCart = useCartStore((state) => state.clear);
 
+  // Derived totals — updated whenever cart or coupon state changes
+  const subtotal = cart ? Number(cart.subtotal) : 0;
+
+  const derivedDiscount = coupon.status === "valid" ? coupon.discount : 0;
+  const derivedShipping = coupon.status === "valid" ? coupon.shippingCost : SHIPPING_COST;
+  const derivedTotal = coupon.status === "valid" ? coupon.total : subtotal + SHIPPING_COST;
+
+  async function handleApplyCoupon() {
+    const code = couponCode.trim();
+    if (!code) return;
+
+    setCoupon({ status: "validating" });
+    setSubmitError("");
+
+    try {
+      const response = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ couponCode: code, subtotal }),
+      });
+
+      const data = await response.json() as {
+        valid?: boolean;
+        message?: string;
+        discount?: number;
+        shippingCost?: number;
+        total?: number;
+        couponCode?: string;
+      };
+
+      if (!response.ok) {
+        setCoupon({ status: "invalid", message: data.message ?? "Unable to validate coupon." });
+        setCouponCode("");
+        return;
+      }
+
+      if (data.valid) {
+        setCoupon({
+          status: "valid",
+          code: data.couponCode!,
+          discount: data.discount!,
+          shippingCost: data.shippingCost!,
+          total: data.total!,
+        });
+      } else {
+        setCoupon({ status: "invalid", message: data.message ?? "Invalid coupon code." });
+        setCouponCode("");
+      }
+    } catch {
+      setCoupon({ status: "invalid", message: "Unable to validate coupon." });
+      setCouponCode("");
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setCoupon({ status: "idle" });
+    setCouponCode("");
+  }
+
   async function handleCreateOrder() {
     if (!selectedAddressId) {
-      setError("Please select a delivery address.");
+      setSubmitError("Please select a delivery address.");
       return;
     }
 
     setCreatingOrder(true);
-    setError("");
+    setSubmitError("");
 
     try {
       const orderRequest = {
         addressId: selectedAddressId,
-        couponCode,
+        couponCode: coupon.status === "valid" ? coupon.code : undefined,
         ...(buyNow ? { buyNow } : {}),
       };
       const fingerprint = JSON.stringify(orderRequest);
@@ -133,7 +201,7 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message ?? "Unable to create your order.");
+        setSubmitError(data.message ?? "Unable to create your order.");
         return;
       }
 
@@ -143,7 +211,7 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
 
       router.push(`/checkout/payment?orderId=${data.order.id}`);
     } catch {
-      setError("Unable to create your order.");
+      setSubmitError("Unable to create your order.");
     } finally {
       setCreatingOrder(false);
     }
@@ -162,11 +230,25 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
     );
   }
 
-  if (error) {
+  if (loadError) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-12">
-        <div className="rounded-lg border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-          {error}
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-sm font-medium text-red-700">{loadError}</p>
+          <div className="mt-4 flex justify-center gap-3">
+            <button
+              onClick={() => void loadCheckoutData()}
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            >
+              Try Again
+            </button>
+            <Link
+              href="/cart"
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Back to Cart
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -281,55 +363,146 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
 
           <div className="my-5 border-t border-slate-200" />
 
+          {/* Subtotal */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-500">Subtotal</span>
 
             <span className="font-semibold text-slate-900">
-              LKR {Number(cart.subtotal).toLocaleString("en-LK")}
+              LKR {subtotal.toLocaleString("en-LK")}
             </span>
           </div>
 
+          {/* Discount row — only shown when coupon applied */}
+          {coupon.status === "valid" && (
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-sm text-green-600">
+                Discount{" "}
+                <span className="rounded bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700">
+                  {coupon.code}
+                </span>
+              </span>
+
+              <span className="text-sm font-medium text-green-600">
+                − LKR {coupon.discount.toLocaleString("en-LK")}
+              </span>
+            </div>
+          )}
+
+          {/* Shipping row */}
           <div className="mt-3 flex items-center justify-between">
             <span className="text-sm text-slate-500">Shipping</span>
 
-            <span className="text-sm font-medium text-slate-700">
-              Calculated next
-            </span>
+            {derivedShipping === 0 ? (
+              <span className="text-sm font-medium text-green-600">Free</span>
+            ) : (
+              <span className="text-sm font-medium text-slate-700">
+                LKR {derivedShipping.toLocaleString("en-LK")}
+              </span>
+            )}
           </div>
 
+          {/* Coupon section */}
           <div className="mt-6">
             <label
               htmlFor="coupon"
-              className="mb-2 block text-sm font-medium text-slate-700"
+              className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700"
             >
+              <Tag size={14} />
               Coupon Code
             </label>
 
-            <input
-              id="coupon"
-              value={couponCode}
-              onChange={(event) =>
-                setCouponCode(event.target.value.toUpperCase())
-              }
-              placeholder="Enter coupon code"
-              className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-            />
+            {coupon.status === "valid" ? (
+              /* Applied coupon pill */
+              <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={16} className="text-green-600" />
+                  <span className="text-sm font-medium text-green-700">
+                    {coupon.code} applied
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="text-slate-400 hover:text-slate-600"
+                  aria-label="Remove coupon"
+                >
+                  <XCircle size={16} />
+                </button>
+              </div>
+            ) : (
+              /* Input + Apply */
+              <div className="flex gap-2">
+                <input
+                  id="coupon"
+                  value={couponCode}
+                  onChange={(event) => {
+                    setCouponCode(event.target.value.toUpperCase());
+                    if (coupon.status === "invalid") setCoupon({ status: "idle" });
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleApplyCoupon(); }}
+                  placeholder="Enter coupon code"
+                  disabled={coupon.status === "validating"}
+                  className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2.5 text-sm uppercase outline-none focus:border-blue-500 disabled:bg-slate-50"
+                />
 
-            <p className="mt-2 text-xs text-slate-500">
-              The coupon will be validated again on the server when your order
-              is created.
-            </p>
+                <button
+                  type="button"
+                  onClick={() => void handleApplyCoupon()}
+                  disabled={!couponCode.trim() || coupon.status === "validating"}
+                  className="shrink-0 rounded-md bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {coupon.status === "validating" ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    "Apply"
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Validation feedback */}
+            {coupon.status === "invalid" && (
+              <p className="mt-2 flex items-center gap-1 text-xs text-red-600">
+                <XCircle size={12} />
+                {coupon.message}
+              </p>
+            )}
+
+            {coupon.status === "idle" && (
+              <p className="mt-2 text-xs text-slate-500">
+                The coupon will be validated again on the server when your order
+                is created.
+              </p>
+            )}
           </div>
 
           <div className="my-5 border-t border-slate-200" />
 
+          {/* Total */}
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-900">Total</span>
 
             <span className="text-xl font-semibold text-slate-900">
-              LKR {Number(cart.subtotal).toLocaleString("en-LK")}
+              LKR {derivedTotal.toLocaleString("en-LK")}
             </span>
           </div>
+
+          {submitError && (
+            <div className="mt-4 flex items-start justify-between gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="flex items-start gap-2">
+                <XCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
+                <span>{submitError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubmitError("")}
+                className="shrink-0 text-red-400 hover:text-red-600"
+                aria-label="Dismiss error"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
 
           <button
             type="button"
