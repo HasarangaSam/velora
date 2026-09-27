@@ -99,7 +99,6 @@ export default function CheckoutPageClient({ buyNow }: { buyNow?: { variantId: s
   // Derived totals — updated whenever cart or coupon state changes
   const subtotal = cart ? Number(cart.subtotal) : 0;
 
-  const derivedDiscount = coupon.status === "valid" ? coupon.discount : 0;
   const derivedShipping = coupon.status === "valid" ? coupon.shippingCost : SHIPPING_COST;
   const derivedTotal = coupon.status === "valid" ? coupon.total : subtotal + SHIPPING_COST;
 

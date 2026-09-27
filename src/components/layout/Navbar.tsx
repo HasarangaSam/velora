@@ -26,6 +26,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const selectedCategory = searchParams.get("category") ?? "";
+  const urlSearch = searchParams.get("search") ?? "";
   const { data: session } = useSession();
   const cartItems = useCartStore((state) => state.items);
   const mounted = useSyncExternalStore(
@@ -38,21 +39,21 @@ export default function Navbar() {
   const activeUser = mounted ? session?.user : undefined;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInputState, setSearchInputState] = useState({
+    pathname,
+    urlSearch,
+    value: pathname === "/shop" ? urlSearch : "",
+  });
   const [wishlistCount, setWishlistCount] = useState(0);
 
-  const urlSearch = searchParams.get("search") ?? "";
-
-  useEffect(() => {
-    if (pathname === "/shop") {
-      setSearchQuery(urlSearch);
-    } else {
-      setSearchQuery("");
-    }
-  }, [pathname, urlSearch]);
+  let searchQuery = searchInputState.value;
+  if (searchInputState.pathname !== pathname || searchInputState.urlSearch !== urlSearch) {
+    searchQuery = pathname === "/shop" ? urlSearch : "";
+    setSearchInputState({ pathname, urlSearch, value: searchQuery });
+  }
 
   function handleClearSearch() {
-    setSearchQuery("");
+    setSearchInputState((current) => ({ ...current, value: "" }));
     if (pathname === "/shop" && searchParams.get("search")) {
       const params = new URLSearchParams(searchParams.toString());
       params.delete("search");
@@ -166,7 +167,7 @@ export default function Navbar() {
           {/* Search Bar */}
           <ProductSearchInput
             value={searchQuery}
-            onChange={setSearchQuery}
+            onChange={(value) => setSearchInputState((current) => ({ ...current, value }))}
             onSubmit={(value) => {
               if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
             }}
@@ -294,7 +295,7 @@ export default function Navbar() {
         <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-4">
           <ProductSearchInput
             value={searchQuery}
-            onChange={setSearchQuery}
+            onChange={(value) => setSearchInputState((current) => ({ ...current, value }))}
             onSubmit={(value) => {
               if (value.trim()) router.push(`/shop?search=${encodeURIComponent(value.trim())}`);
               setMobileMenuOpen(false);
