@@ -3,18 +3,12 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import {
-  LayoutDashboard,
-  Package,
-  Layers,
-  ShoppingBag,
-  Ticket,
-  Users,
   ArrowLeft,
   ShieldCheck,
-  MessageSquareText,
 } from "lucide-react";
 import NotificationBell from "@/components/layout/NotificationBell";
 import LogoutButton from "@/components/auth/LogoutButton";
+import AdminSidebarNavigation from "@/components/admin/AdminSidebarNavigation";
 
 export default async function AdminLayout({
   children,
@@ -39,7 +33,7 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex-shrink-0">
+      <aside className="w-full flex-shrink-0 border-r border-slate-200 bg-white md:sticky md:top-0 md:h-screen md:w-64 md:self-start md:overflow-y-auto">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <Link href="/admin" className="flex items-center gap-2">
             <span className="font-black text-2xl tracking-tight text-blue-600">
@@ -52,83 +46,9 @@ export default async function AdminLayout({
           </Link>
         </div>
 
-        <nav className="p-4 space-y-1">
-          <Link
-            href="/admin"
-            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
-          >
-            <LayoutDashboard size={18} />
-            Dashboard
-          </Link>
-
-          <Link
-            href="/admin/products"
-            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
-          >
-            <Package size={18} />
-            Products & Variants
-          </Link>
-
-          <Link
-            href="/admin/categories"
-            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
-          >
-            <Layers size={18} />
-            Categories
-          </Link>
-
-          <Link
-            href="/admin/orders"
-            className="flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition group"
-          >
-            <div className="flex items-center gap-3">
-              <ShoppingBag size={18} />
-              <span>Orders</span>
-            </div>
-            {unprocessedOrdersCount > 0 && (
-              <span
-                title={`${unprocessedOrdersCount} confirmed orders awaiting processing`}
-                className="inline-flex items-center justify-center rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-xs"
-              >
-                {unprocessedOrdersCount}
-              </span>
-            )}
-          </Link>
-
-          <Link
-            href="/admin/coupons"
-            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
-          >
-            <Ticket size={18} />
-            Coupons
-          </Link>
-
-          <Link
-            href="/admin/users"
-            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition"
-          >
-            <Users size={18} />
-            User Management
-          </Link>
-
-          <Link
-            href="/admin/reviews"
-            className="flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition group"
-          >
-            <div className="flex items-center gap-3">
-              <MessageSquareText size={18} />
-              <span>Product Reviews</span>
-            </div>
-            {pendingReviewsCount > 0 && (
-              <span
-                title={`${pendingReviewsCount} reviews awaiting moderation`}
-                className="inline-flex items-center justify-center rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white"
-              >
-                {pendingReviewsCount}
-              </span>
-            )}
-          </Link>
-        </nav>
+        <AdminSidebarNavigation
+          initialCounts={{ orders: unprocessedOrdersCount, reviews: pendingReviewsCount }}
+        />
 
         <div className="p-4 border-t border-slate-100 mt-auto">
           <div className="mb-4 px-3 py-2 bg-slate-50 rounded-lg">

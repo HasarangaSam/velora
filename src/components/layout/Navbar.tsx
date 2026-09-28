@@ -39,12 +39,24 @@ export default function Navbar() {
   const activeUser = mounted ? session?.user : undefined;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const navigationKey = `${pathname}?${searchParams.toString()}`;
   const [searchInputState, setSearchInputState] = useState({
     pathname,
     urlSearch,
     value: pathname === "/shop" ? urlSearch : "",
   });
   const [wishlistCount, setWishlistCount] = useState(0);
+
+  useEffect(() => {
+    // The navbar persists between App Router navigations, so explicitly close
+    // transient menus when either the path or its query parameters change.
+    const closeMenus = window.setTimeout(() => {
+      setMobileMenuOpen(false);
+      setUserDropdownOpen(false);
+    }, 0);
+
+    return () => window.clearTimeout(closeMenus);
+  }, [navigationKey]);
 
   let searchQuery = searchInputState.value;
   if (searchInputState.pathname !== pathname || searchInputState.urlSearch !== urlSearch) {

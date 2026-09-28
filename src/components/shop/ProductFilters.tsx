@@ -21,30 +21,48 @@ type ProductFiltersProps = {
   categories: Category[];
 };
 
-export default function ProductFilters({ categories }: ProductFiltersProps) {
-  const searchParams = useSearchParams();
-  const searchParamsString = searchParams.toString();
+type FilterDrafts = {
+  query: string;
+  search: string;
+  minPrice: string;
+  maxPrice: string;
+};
 
+function getFilterDrafts(query: string): FilterDrafts {
+  const params = new URLSearchParams(query);
+  return {
+    query,
+    search: params.get("search") ?? "",
+    minPrice: params.get("minPrice") ?? "",
+    maxPrice: params.get("maxPrice") ?? "",
+  };
+}
+
+const FILTER_DEBOUNCE_MS = 500;
+
+export default function ProductFilters({ categories }: ProductFiltersProps) {
   return (
     <ProductFiltersForm
-      key={searchParamsString}
       categories={categories}
-      initialSearch={searchParams.get("search") ?? ""}
     />
   );
 }
 
-function ProductFiltersForm({
-  categories,
-  initialSearch,
-}: ProductFiltersProps & { initialSearch: string }) {
+function ProductFiltersForm({ categories }: ProductFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const [search, setSearch] = useState(initialSearch);
-  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") ?? "");
-  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") ?? "");
   const searchParamsString = searchParams.toString();
+  const [drafts, setDrafts] = useState(() => getFilterDrafts(searchParamsString));
+
+  // Sync external URL changes without remounting the inputs. Keying the form to
+  // the query string loses focus whenever a debounced price update navigates.
+  if (drafts.query !== searchParamsString) {
+    setDrafts(getFilterDrafts(searchParamsString));
+  }
+  const currentDrafts = drafts.query === searchParamsString
+    ? drafts
+    : getFilterDrafts(searchParamsString);
+  const { search, minPrice, maxPrice } = currentDrafts;
 
   const category = searchParams.get("category") ?? "";
   const sort = searchParams.get("sort") ?? "newest";
@@ -94,7 +112,7 @@ function ProductFiltersForm({
       if (next !== searchParamsString) {
         router.replace(`/shop${next ? `?${next}` : ""}`, { scroll: false });
       }
-    }, 300);
+    }, FILTER_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
   }, [router, search, minPrice, maxPrice, searchParamsString]);
@@ -116,13 +134,13 @@ function ProductFiltersForm({
           id="search"
           label="Search"
           value={search}
-          onChange={setSearch}
+          onChange={(value) => setDrafts((current) => ({ ...current, search: value }))}
           onSubmit={(value) => {
-            setSearch(value);
+            setDrafts((current) => ({ ...current, search: value }));
             updateFilters({ search: value.trim() });
           }}
           onClear={() => {
-            setSearch("");
+            setDrafts((current) => ({ ...current, search: "" }));
             updateFilters({ search: "" });
           }}
         />
@@ -179,7 +197,7 @@ function ProductFiltersForm({
             type="number"
             min="0"
             value={minPrice}
-            onChange={(event) => setMinPrice(event.target.value)}
+            onChange={(event) => setDrafts((current) => ({ ...current, minPrice: event.target.value }))}
             placeholder="0"
             className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           />
@@ -198,8 +216,8 @@ function ProductFiltersForm({
             type="number"
             min="0"
             value={maxPrice}
-            onChange={(event) => setMaxPrice(event.target.value)}
-            placeholder="100000"
+            onChange={(event) => setDrafts((current) => ({ ...current, maxPrice: event.target.value }))}
+            placeholder="No maximum"
             className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100"
           />
         </div>
@@ -230,7 +248,7 @@ function ProductFiltersForm({
         </div>
       </div>
       {(category || minPrice || maxPrice || searchParams.get("search")) && (
-        <button type="button" onClick={() => { setSearch(""); setMinPrice(""); setMaxPrice(""); updateFilters({ category: "", minPrice: "", maxPrice: "", search: "" }); }}
+        <button type="button" onClick={() => { setDrafts((current) => ({ ...current, search: "", minPrice: "", maxPrice: "" })); updateFilters({ category: "", minPrice: "", maxPrice: "", search: "" }); }}
           className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-stone-600 hover:text-stone-950">
           <X className="h-3.5 w-3.5" /> Clear filters
         </button>

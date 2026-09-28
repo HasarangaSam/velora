@@ -16,18 +16,20 @@ function generateOrderNumber() {
   return `VEL-${timestamp}-${random}`;
 }
 
-function serializeCreatedOrder<T extends {
-  id: string;
-  orderNumber: string;
-  status: string;
-  paymentStatus: string;
-  subtotal: { toString(): string };
-  discount: { toString(): string };
-  shippingCost: { toString(): string };
-  total: { toString(): string };
-  couponCode: string | null;
-  payment: { id: string } | null;
-}>(order: T) {
+function serializeCreatedOrder<
+  T extends {
+    id: string;
+    orderNumber: string;
+    status: string;
+    paymentStatus: string;
+    subtotal: { toString(): string };
+    discount: { toString(): string };
+    shippingCost: { toString(): string };
+    total: { toString(): string };
+    couponCode: string | null;
+    payment: { id: string } | null;
+  },
+>(order: T) {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -144,12 +146,14 @@ export async function POST(request: Request) {
     }
 
     const requestHash = createHash("sha256")
-      .update(JSON.stringify({
-        userId: user.id,
-        addressId: result.data.addressId,
-        couponCode: result.data.couponCode?.trim().toUpperCase() ?? "",
-        buyNow: result.data.buyNow ?? null,
-      }))
+      .update(
+        JSON.stringify({
+          userId: user.id,
+          addressId: result.data.addressId,
+          couponCode: result.data.couponCode?.trim().toUpperCase() ?? "",
+          buyNow: result.data.buyNow ?? null,
+        }),
+      )
       .digest("hex");
 
     const existingOrder = await prisma.order.findUnique({
@@ -157,14 +161,23 @@ export async function POST(request: Request) {
       include: { payment: true },
     });
     if (existingOrder) {
-      if (existingOrder.userId !== user.id || existingOrder.checkoutRequestHash !== requestHash) {
+      if (
+        existingOrder.userId !== user.id ||
+        existingOrder.checkoutRequestHash !== requestHash
+      ) {
         return NextResponse.json(
-          { message: "This checkout request key was already used for a different request." },
+          {
+            message:
+              "This checkout request key was already used for a different request.",
+          },
           { status: 409 },
         );
       }
       return NextResponse.json(
-        { message: "Order already created.", order: serializeCreatedOrder(existingOrder) },
+        {
+          message: "Order already created.",
+          order: serializeCreatedOrder(existingOrder),
+        },
         { status: 200 },
       );
     }
@@ -275,7 +288,10 @@ export async function POST(request: Request) {
 
         case error.message === "WELCOME500_FIRST_ORDER_ONLY":
           return NextResponse.json(
-            { message: "WELCOME500 is available on your first successful order only." },
+            {
+              message:
+                "WELCOME500 is available on your first successful order only.",
+            },
             { status: 400 },
           );
 
@@ -285,24 +301,63 @@ export async function POST(request: Request) {
     }
 
     const buyNow = result.data.buyNow;
-    const cart = buyNow ? null : await prisma.cart.findUnique({
-      where: { userId: user.id },
-      include: {
-        items: {
+    const cart = buyNow
+      ? null
+      : await prisma.cart.findUnique({
+          where: { userId: user.id },
           include: {
-            product: { select: { id: true, name: true, isActive: true, price: true, salePrice: true } },
-            variant: { select: { id: true, productId: true, size: true, colour: true, stock: true } },
+            items: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    isActive: true,
+                    price: true,
+                    salePrice: true,
+                  },
+                },
+                variant: {
+                  select: {
+                    id: true,
+                    productId: true,
+                    size: true,
+                    colour: true,
+                    stock: true,
+                  },
+                },
+              },
+            },
           },
-        },
-      },
-    });
-    const buyNowVariant = buyNow ? await prisma.productVariant.findUnique({
-      where: { id: buyNow.variantId },
-      include: { product: { select: { id: true, name: true, isActive: true, price: true, salePrice: true } } },
-    }) : null;
-    const itemsToOrder = buyNow && buyNowVariant
-      ? [{ productId: buyNowVariant.productId, variantId: buyNowVariant.id, quantity: buyNow.quantity, product: buyNowVariant.product, variant: buyNowVariant }]
-      : cart?.items ?? [];
+        });
+    const buyNowVariant = buyNow
+      ? await prisma.productVariant.findUnique({
+          where: { id: buyNow.variantId },
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                isActive: true,
+                price: true,
+                salePrice: true,
+              },
+            },
+          },
+        })
+      : null;
+    const itemsToOrder =
+      buyNow && buyNowVariant
+        ? [
+            {
+              productId: buyNowVariant.productId,
+              variantId: buyNowVariant.id,
+              quantity: buyNow.quantity,
+              product: buyNowVariant.product,
+              variant: buyNowVariant,
+            },
+          ]
+        : (cart?.items ?? []);
 
     if (itemsToOrder.length === 0) {
       return NextResponse.json(
@@ -317,100 +372,108 @@ export async function POST(request: Request) {
     let replayed = false;
     try {
       order = await prisma.$transaction(async (tx) => {
-      for (const item of itemsToOrder) {
-        const currentVariant = await tx.productVariant.findUnique({
-          where: {
-            id: item.variantId,
-          },
-          include: {
-            product: {
-              select: {
-                isActive: true,
+        for (const item of itemsToOrder) {
+          const currentVariant = await tx.productVariant.findUnique({
+            where: {
+              id: item.variantId,
+            },
+            include: {
+              product: {
+                select: {
+                  isActive: true,
+                },
+              },
+            },
+          });
+
+          if (!currentVariant || !currentVariant.product.isActive) {
+            throw new Error("PRODUCT_UNAVAILABLE");
+          }
+
+          if (currentVariant.productId !== item.productId) {
+            throw new Error("INVALID_CART_ITEM");
+          }
+
+          if (currentVariant.stock < item.quantity) {
+            throw new Error("INSUFFICIENT_STOCK");
+          }
+        }
+
+        const createdOrder = await tx.order.create({
+          data: {
+            orderNumber: generateOrderNumber(),
+            checkoutRequestKey: idempotencyKey,
+            checkoutRequestHash: requestHash,
+            userId: user.id,
+            addressId: address.id,
+
+            status: "PENDING",
+            paymentStatus: "PENDING",
+
+            shippingFullName: address.fullName,
+            shippingPhone: address.phone,
+            shippingAddressLine1: address.addressLine1,
+            shippingAddressLine2: address.addressLine2 || null,
+            shippingCity: address.city,
+            shippingDistrict: address.district,
+            shippingPostalCode: address.postalCode,
+
+            subtotal: totals.subtotal,
+            discount: totals.discount,
+            shippingCost: totals.shippingCost,
+            total: totals.total,
+            couponCode: totals.couponCode,
+
+            items: {
+              create: itemsToOrder.map((item) => ({
+                productId: item.productId,
+                variantId: item.variantId,
+                name: item.product.name,
+                size: item.variant.size,
+                colour: item.variant.colour,
+                // Keep order lines consistent with the totals calculated from
+                // the same server-side product prices before this transaction.
+                price: getCurrentPrice(item.product),
+                quantity: item.quantity,
+              })),
+            },
+
+            payment: {
+              create: {
+                amount: totals.total,
+                currency: "LKR",
+                provider: "PAYHERE",
+                status: "PENDING",
               },
             },
           },
+          include: {
+            items: true,
+            payment: true,
+          },
         });
 
-        if (!currentVariant || !currentVariant.product.isActive) {
-          throw new Error("PRODUCT_UNAVAILABLE");
+        if (cart) {
+          await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
         }
 
-        if (currentVariant.productId !== item.productId) {
-          throw new Error("INVALID_CART_ITEM");
-        }
-
-        if (currentVariant.stock < item.quantity) {
-          throw new Error("INSUFFICIENT_STOCK");
-        }
-      }
-
-      const createdOrder = await tx.order.create({
-        data: {
-          orderNumber: generateOrderNumber(),
-          checkoutRequestKey: idempotencyKey,
-          checkoutRequestHash: requestHash,
-          userId: user.id,
-          addressId: address.id,
-
-          status: "PENDING",
-          paymentStatus: "PENDING",
-
-          shippingFullName: address.fullName,
-          shippingPhone: address.phone,
-          shippingAddressLine1: address.addressLine1,
-          shippingAddressLine2: address.addressLine2 || null,
-          shippingCity: address.city,
-          shippingDistrict: address.district,
-          shippingPostalCode: address.postalCode,
-
-          subtotal: totals.subtotal,
-          discount: totals.discount,
-          shippingCost: totals.shippingCost,
-          total: totals.total,
-          couponCode: totals.couponCode,
-
-          items: {
-            create: itemsToOrder.map((item) => ({
-              productId: item.productId,
-              variantId: item.variantId,
-              name: item.product.name,
-              size: item.variant.size,
-              colour: item.variant.colour,
-              // Keep order lines consistent with the totals calculated from
-              // the same server-side product prices before this transaction.
-              price: getCurrentPrice(item.product),
-              quantity: item.quantity,
-            })),
-          },
-
-          payment: {
-            create: {
-              amount: totals.total,
-              currency: "LKR",
-              provider: "PAYHERE",
-              status: "PENDING",
-            },
-          },
-        },
-        include: {
-          items: true,
-          payment: true,
-        },
-      });
-
-      if (cart) {
-        await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-      }
-
-      return createdOrder;
+        return createdOrder;
       });
     } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "P2002"
+      ) {
         const concurrentOrder = await prisma.order.findUnique({
           where: { checkoutRequestKey: idempotencyKey },
           include: { payment: true },
         });
-        if (concurrentOrder?.userId === user.id && concurrentOrder.checkoutRequestHash === requestHash) {
+        if (
+          concurrentOrder?.userId === user.id &&
+          concurrentOrder.checkoutRequestHash === requestHash
+        ) {
           order = concurrentOrder;
           replayed = true;
         } else {
@@ -428,12 +491,17 @@ export async function POST(request: Request) {
         href: `/admin/orders/${order.id}`,
       });
     } catch (notificationError) {
-      console.error("Could not create new-order admin notification:", notificationError);
+      console.error(
+        "Could not create new-order admin notification:",
+        notificationError,
+      );
     }
 
     return NextResponse.json(
       {
-        message: replayed ? "Order already created." : "Order created successfully.",
+        message: replayed
+          ? "Order already created."
+          : "Order created successfully.",
         order: serializeCreatedOrder(order),
       },
       { status: replayed ? 200 : 201 },
