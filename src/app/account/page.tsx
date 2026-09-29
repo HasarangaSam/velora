@@ -14,12 +14,16 @@ import {
 } from "lucide-react";
 
 export default async function AccountPage() {
+  // The account dashboard is authenticated; we redirect signed-out users back to login before
+  // rendering any personal account data.
   const session = await auth();
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/account");
   }
 
+  // Load all the account summary counters together so the dashboard can render quickly with a
+  // single server round-trip instead of multiple sequential queries.
   const [orders, addressCount, wishlistCount, reviewCount] = await Promise.all([
     prisma.order.findMany({
       where: { userId: session.user.id },
@@ -32,14 +36,16 @@ export default async function AccountPage() {
     prisma.address.count({
       where: { userId: session.user.id },
     }),
-    prisma.wishlistItem.count({ where: { userId: session.user.id, product: { isActive: true } } }),
+    prisma.wishlistItem.count({
+      where: { userId: session.user.id, product: { isActive: true } },
+    }),
     prisma.productReview.count({ where: { userId: session.user.id } }),
   ]);
 
   return (
     <main className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        {/* Welcome Banner */}
+        {/* Welcome banner gives the user a clear account overview and a quick route back to shopping. */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
@@ -71,7 +77,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        {/* Quick Nav Cards */}
+        {/* Quick navigation cards make the most common account actions easy to reach from one page. */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             href="/account/profile"
@@ -81,10 +87,16 @@ export default async function AccountPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-stone-100 text-stone-700">
                 <UserRound size={20} />
               </div>
-              <span className="text-xs font-semibold text-stone-600 transition-transform group-hover:translate-x-1">Edit →</span>
+              <span className="text-xs font-semibold text-stone-600 transition-transform group-hover:translate-x-1">
+                Edit →
+              </span>
             </div>
-            <h2 className="mt-4 text-lg font-bold text-slate-900">Profile & security</h2>
-            <p className="mt-1 text-xs text-slate-500">Update your name, change your password, or close your account.</p>
+            <h2 className="mt-4 text-lg font-bold text-slate-900">
+              Profile & security
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Update your name, change your password, or close your account.
+            </p>
           </Link>
 
           <Link
@@ -92,11 +104,20 @@ export default async function AccountPage() {
             className="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-blue-300 hover:shadow-md"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600"><MessageSquareText size={20} /></div>
-              <span className="text-xs font-semibold text-blue-600 transition-transform group-hover:translate-x-1">Manage →</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <MessageSquareText size={20} />
+              </div>
+              <span className="text-xs font-semibold text-blue-600 transition-transform group-hover:translate-x-1">
+                Manage →
+              </span>
             </div>
-            <h2 className="mt-4 text-lg font-bold text-slate-900">My Reviews</h2>
-            <p className="mt-1 text-xs text-slate-500">{reviewCount} {reviewCount === 1 ? "review" : "reviews"} shared with the community.</p>
+            <h2 className="mt-4 text-lg font-bold text-slate-900">
+              My Reviews
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {reviewCount} {reviewCount === 1 ? "review" : "reviews"} shared
+              with the community.
+            </p>
           </Link>
 
           <Link
@@ -107,10 +128,17 @@ export default async function AccountPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
                 <Heart size={20} />
               </div>
-              <span className="text-xs font-semibold text-rose-600 transition-transform group-hover:translate-x-1">View →</span>
+              <span className="text-xs font-semibold text-rose-600 transition-transform group-hover:translate-x-1">
+                View →
+              </span>
             </div>
-            <h2 className="mt-4 text-lg font-bold text-slate-900">My Wishlist</h2>
-            <p className="mt-1 text-xs text-slate-500">{wishlistCount} saved {wishlistCount === 1 ? "item" : "items"} to come back to.</p>
+            <h2 className="mt-4 text-lg font-bold text-slate-900">
+              My Wishlist
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {wishlistCount} saved {wishlistCount === 1 ? "item" : "items"} to
+              come back to.
+            </p>
           </Link>
 
           <Link
@@ -127,7 +155,8 @@ export default async function AccountPage() {
             </div>
             <h2 className="text-lg font-bold text-slate-900 mt-4">My Orders</h2>
             <p className="text-xs text-slate-500 mt-1">
-              You have placed {orders.length} orders. Track fulfillment and view invoices.
+              You have placed {orders.length} orders. Track fulfillment and view
+              invoices.
             </p>
           </Link>
 
@@ -143,7 +172,9 @@ export default async function AccountPage() {
                 Manage →
               </span>
             </div>
-            <h2 className="text-lg font-bold text-slate-900 mt-4">Saved Addresses</h2>
+            <h2 className="text-lg font-bold text-slate-900 mt-4">
+              Saved Addresses
+            </h2>
             <p className="text-xs text-slate-500 mt-1">
               {addressCount} saved delivery addresses for faster checkout.
             </p>
@@ -154,7 +185,9 @@ export default async function AccountPage() {
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Recent Orders</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                Recent Orders
+              </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Track your latest shipments and purchases
               </p>
@@ -210,11 +243,13 @@ export default async function AccountPage() {
                         </span>
                         <span
                           className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                            order.status === "CONFIRMED" || order.status === "DELIVERED"
+                            order.status === "CONFIRMED" ||
+                            order.status === "DELIVERED"
                               ? "bg-blue-50 text-blue-700"
-                              : order.status === "PROCESSING" || order.status === "SHIPPED"
-                              ? "bg-indigo-50 text-indigo-700"
-                              : "bg-slate-100 text-slate-600"
+                              : order.status === "PROCESSING" ||
+                                  order.status === "SHIPPED"
+                                ? "bg-indigo-50 text-indigo-700"
+                                : "bg-slate-100 text-slate-600"
                           }`}
                         >
                           {order.status}

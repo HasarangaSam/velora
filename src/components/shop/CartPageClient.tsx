@@ -8,6 +8,8 @@ import CartItem from "@/components/shop/CartItem";
 import { useCartStore } from "@/store";
 import type { CartData, CartItemData } from "@/types/cart";
 
+// The cart page supports both signed-in and guest flows by switching between server-side cart state
+// and the local Zustand cart store.
 export default function CartPageClient() {
   const { status } = useSession();
 
@@ -65,7 +67,8 @@ export default function CartPageClient() {
           0,
         );
 
-  const cartIsLoading = status === "loading" || (status === "authenticated" && loading);
+  const cartIsLoading =
+    status === "loading" || (status === "authenticated" && loading);
 
   async function updateServerItem(item: CartItemData, quantity: number) {
     if (!item.id) {

@@ -30,17 +30,22 @@ const initialState: RegisterActionState = {
   message: "",
 };
 
+// The registration form submits server action validation and then redirects the user to the
+// email verification step once the account is created successfully.
 export default function RegisterForm() {
   const router = useRouter();
   const params = useSearchParams();
   const requestedCallback = params.get("callbackUrl");
-  const callbackUrl = requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
-    ? requestedCallback
-    : null;
+  const callbackUrl =
+    requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
+      ? requestedCallback
+      : null;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [state, formAction] = useActionState(registerUser, initialState);
 
+  // Redirect to verification after a successful registration so the user completes the email check
+  // before they can sign in to the app.
   useEffect(() => {
     if (state.success && state.email) {
       const timer = setTimeout(() => {
@@ -96,7 +101,9 @@ export default function RegisterForm() {
               />
             </div>
             {state.errors?.name && (
-              <p className="mt-1 text-xs text-red-600">{state.errors.name[0]}</p>
+              <p className="mt-1 text-xs text-red-600">
+                {state.errors.name[0]}
+              </p>
             )}
           </div>
 
@@ -125,7 +132,9 @@ export default function RegisterForm() {
               />
             </div>
             {state.errors?.email && (
-              <p className="mt-1 text-xs text-red-600">{state.errors.email[0]}</p>
+              <p className="mt-1 text-xs text-red-600">
+                {state.errors.email[0]}
+              </p>
             )}
           </div>
 
@@ -166,7 +175,9 @@ export default function RegisterForm() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            <p className="mt-1 text-xs text-slate-500">At least 8 characters, one uppercase letter, and one symbol.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              At least 8 characters, one uppercase letter, and one symbol.
+            </p>
             {state.errors?.password && (
               <p className="mt-1 text-xs text-red-600">
                 {state.errors.password[0]}
@@ -204,7 +215,11 @@ export default function RegisterForm() {
                 type="button"
                 onClick={() => setShowConfirmPassword((current) => !current)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
               >
                 {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -234,7 +249,11 @@ export default function RegisterForm() {
         <p className="mt-6 text-center text-sm text-slate-500">
           Already have an account?{" "}
           <Link
-            href={callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login"}
+            href={
+              callbackUrl
+                ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                : "/login"
+            }
             className="font-semibold text-blue-600 hover:text-blue-700"
           >
             Sign in

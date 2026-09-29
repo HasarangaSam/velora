@@ -32,7 +32,13 @@ const initialVariant: Variant = { size: "M", colour: "Black", stock: "0" };
 
 const initialState: ProductActionState = { success: false, message: "" };
 
-export default function ProductForm({ categories }: { categories: Category[] }) {
+// This form validates product details, handles duplicate variant checks, and uploads the selected
+// gallery images after the product record is created.
+export default function ProductForm({
+  categories,
+}: {
+  categories: Category[];
+}) {
   const [state, formAction] = useActionState(createProduct, initialState);
   const router = useRouter();
   const [images, setImages] = useState<SelectedImage[]>([]);
@@ -46,16 +52,26 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
   const [variants, setVariants] = useState<Variant[]>([{ ...initialVariant }]);
   const [variantError, setVariantError] = useState("");
 
-  useEffect(() => () => {
-    imagePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
-  }, []);
+  useEffect(
+    () => () => {
+      imagePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [],
+  );
 
-  // Sub-categories for the currently selected main category
+  // Sub-categories for the currently selected main category help narrow the product taxonomy.
   const subCategories =
     categories.find((c) => c.id === selectedCategoryId)?.children ?? [];
 
+  // After the product is created, upload each chosen image and land on the admin list once the
+  // image batch finishes successfully.
   useEffect(() => {
-    if (!state.success || !state.productId || processedProductId.current === state.productId) return;
+    if (
+      !state.success ||
+      !state.productId ||
+      processedProductId.current === state.productId
+    )
+      return;
     const productId = state.productId;
     processedProductId.current = productId;
 
@@ -63,7 +79,9 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
       const failures: string[] = [];
       for (let index = 0; index < images.length; index++) {
         const file = images[index].file;
-        setImageProgress(`Uploading image ${index + 1} of ${images.length}: ${file.name}`);
+        setImageProgress(
+          `Uploading image ${index + 1} of ${images.length}: ${file.name}`,
+        );
         if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
           failures.push(`${file.name} (must be an image up to 5 MB)`);
           continue;
@@ -71,16 +89,22 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
         try {
           const body = new FormData();
           body.append("image", file);
-          const response = await fetch(`/api/admin/products/${productId}/images`, { method: "POST", body });
+          const response = await fetch(
+            `/api/admin/products/${productId}/images`,
+            { method: "POST", body },
+          );
           const data = await response.json();
-          if (!response.ok) failures.push(`${file.name} (${data.message ?? "upload failed"})`);
+          if (!response.ok)
+            failures.push(`${file.name} (${data.message ?? "upload failed"})`);
         } catch {
           failures.push(`${file.name} (network error)`);
         }
       }
 
       if (failures.length) {
-        setImageError(`Some images could not be uploaded: ${failures.join(", ")}. You can add them from the product edit page.`);
+        setImageError(
+          `Some images could not be uploaded: ${failures.join(", ")}. You can add them from the product edit page.`,
+        );
         setImageProgress("");
         return;
       } else {
@@ -104,39 +128,45 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
       onSubmit={(event) => {
         if (hasDuplicateProductVariantOptions(variants)) {
           event.preventDefault();
-          setVariantError("Each size and colour combination can only be added once. Change or remove the duplicate variant.");
+          setVariantError(
+            "Each size and colour combination can only be added once. Change or remove the duplicate variant.",
+          );
           return;
         }
 
         if (images.length === 0) {
           event.preventDefault();
-          setImageError("Select at least one product image before creating the product.");
+          setImageError(
+            "Select at least one product image before creating the product.",
+          );
           return;
         }
 
         const invalidImage = images.find(
-          ({ file }) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024,
+          ({ file }) =>
+            !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024,
         );
         if (invalidImage) {
           event.preventDefault();
-          setImageError(`${invalidImage.file.name} must be an image up to 5 MB.`);
+          setImageError(
+            `${invalidImage.file.name} must be an image up to 5 MB.`,
+          );
         }
       }}
       className="space-y-8"
     >
       <input type="hidden" name="isActive" value={String(isActive)} />
       <input type="hidden" name="isFeatured" value={String(isFeatured)} />
-      <input
-        type="hidden"
-        name="variants"
-        value={JSON.stringify(variants)}
-      />
+      <input type="hidden" name="variants" value={JSON.stringify(variants)} />
 
       {/* Name + Category row */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Name */}
         <div>
-          <label htmlFor="name" className="mb-2 block text-sm font-medium text-slate-700">
+          <label
+            htmlFor="name"
+            className="mb-2 block text-sm font-medium text-slate-700"
+          >
             Product name
           </label>
           <input
@@ -153,7 +183,10 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
 
         {/* Main category */}
         <div>
-          <label htmlFor="categoryId" className="mb-2 block text-sm font-medium text-slate-700">
+          <label
+            htmlFor="categoryId"
+            className="mb-2 block text-sm font-medium text-slate-700"
+          >
             Main category
           </label>
           <select
@@ -166,13 +199,19 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
             }}
             className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
-            <option value="" disabled>Select category</option>
+            <option value="" disabled>
+              Select category
+            </option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </select>
           {state.errors?.categoryId && (
-            <p className="mt-1 text-sm text-rose-600">{state.errors.categoryId[0]}</p>
+            <p className="mt-1 text-sm text-rose-600">
+              {state.errors.categoryId[0]}
+            </p>
           )}
         </div>
       </div>
@@ -180,9 +219,14 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
       {/* Sub-category — only shown when main category has children */}
       {subCategories.length > 0 && (
         <div>
-          <label htmlFor="subCategoryId" className="mb-2 block text-sm font-medium text-slate-700">
+          <label
+            htmlFor="subCategoryId"
+            className="mb-2 block text-sm font-medium text-slate-700"
+          >
             Sub-category{" "}
-            <span className="text-xs font-normal text-slate-400">(optional)</span>
+            <span className="text-xs font-normal text-slate-400">
+              (optional)
+            </span>
           </label>
           <select
             id="subCategoryId"
@@ -192,7 +236,9 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           >
             <option value="">— No sub-category —</option>
             {subCategories.map((s) => (
-              <option key={s.id} value={s.id}>{getCategoryDisplayName(s)}</option>
+              <option key={s.id} value={s.id}>
+                {getCategoryDisplayName(s)}
+              </option>
             ))}
           </select>
         </div>
@@ -200,7 +246,10 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
 
       {/* Description */}
       <div>
-        <label htmlFor="description" className="mb-2 block text-sm font-medium text-slate-700">
+        <label
+          htmlFor="description"
+          className="mb-2 block text-sm font-medium text-slate-700"
+        >
           Description
         </label>
         <textarea
@@ -212,19 +261,46 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
         {state.errors?.description && (
-          <p className="mt-1 text-sm text-rose-600">{state.errors.description[0]}</p>
+          <p className="mt-1 text-sm text-rose-600">
+            {state.errors.description[0]}
+          </p>
         )}
       </div>
 
       {/* Flags */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1 text-sm font-medium text-slate-700">Regular price (LKR)
-          <input name="price" type="number" min="0.01" step="0.01" required className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-sm" placeholder="0.00" />
-          {state.errors?.price && <span className="text-sm text-rose-600">{state.errors.price[0]}</span>}
+        <label className="space-y-1 text-sm font-medium text-slate-700">
+          Regular price (LKR)
+          <input
+            name="price"
+            type="number"
+            min="0.01"
+            step="0.01"
+            required
+            className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-sm"
+            placeholder="0.00"
+          />
+          {state.errors?.price && (
+            <span className="text-sm text-rose-600">
+              {state.errors.price[0]}
+            </span>
+          )}
         </label>
-        <label className="space-y-1 text-sm font-medium text-slate-700">Sale price (LKR, optional)
-          <input name="salePrice" type="number" min="0.01" step="0.01" className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-sm" placeholder="Leave blank when not on sale" />
-          {state.errors?.salePrice && <span className="text-sm text-rose-600">{state.errors.salePrice[0]}</span>}
+        <label className="space-y-1 text-sm font-medium text-slate-700">
+          Sale price (LKR, optional)
+          <input
+            name="salePrice"
+            type="number"
+            min="0.01"
+            step="0.01"
+            className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-sm"
+            placeholder="Leave blank when not on sale"
+          />
+          {state.errors?.salePrice && (
+            <span className="text-sm text-rose-600">
+              {state.errors.salePrice[0]}
+            </span>
+          )}
         </label>
       </div>
 
@@ -255,7 +331,10 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-900">Variants</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Set size or choose One Size for sarees and other size-free products. Stock is tracked per option.</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Set size or choose One Size for sarees and other size-free
+              products. Stock is tracked per option.
+            </p>
           </div>
           <button
             type="button"
@@ -268,27 +347,45 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
             + Add variant
           </button>
         </div>
-        {(variantError || state.message === "Each size and colour combination can only be added once.") && (
-          <p role="alert" className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        {(variantError ||
+          state.message ===
+            "Each size and colour combination can only be added once.") && (
+          <p
+            role="alert"
+            className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          >
             {variantError || state.message}
           </p>
         )}
 
         <div className="space-y-4">
           {variants.map((variant, index) => (
-            <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+            <div
+              key={index}
+              className="rounded-xl border border-slate-200 bg-slate-50/50 p-4"
+            >
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="space-y-1 text-xs font-medium text-slate-600">
                   Size / fit
                   <select
-                    value={PRODUCT_SIZES.includes(variant.size) ? variant.size : "__custom__"}
+                    value={
+                      PRODUCT_SIZES.includes(variant.size)
+                        ? variant.size
+                        : "__custom__"
+                    }
                     onChange={(e) => {
-                      updateVariant(index, "size", e.target.value === "__custom__" ? "" : e.target.value);
+                      updateVariant(
+                        index,
+                        "size",
+                        e.target.value === "__custom__" ? "" : e.target.value,
+                      );
                     }}
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"
                   >
                     {PRODUCT_SIZES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
                     ))}
                     <option value="__custom__">Custom size…</option>
                   </select>
@@ -296,7 +393,9 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                     <input
                       type="text"
                       value={variant.size}
-                      onChange={(e) => updateVariant(index, "size", e.target.value)}
+                      onChange={(e) =>
+                        updateVariant(index, "size", e.target.value)
+                      }
                       maxLength={20}
                       required
                       placeholder="Enter size"
@@ -309,11 +408,15 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                   Colour
                   <select
                     value={variant.colour}
-                    onChange={(e) => updateVariant(index, "colour", e.target.value)}
+                    onChange={(e) =>
+                      updateVariant(index, "colour", e.target.value)
+                    }
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"
                   >
                     {PRODUCT_COLOURS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -324,7 +427,9 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
                     type="number"
                     min="0"
                     value={variant.stock}
-                    onChange={(e) => updateVariant(index, "stock", e.target.value)}
+                    onChange={(e) =>
+                      updateVariant(index, "stock", e.target.value)
+                    }
                     placeholder="0"
                     className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800"
                     required
@@ -335,12 +440,10 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
               {variants.length > 1 && (
                 <button
                   type="button"
-                  onClick={() =>
-                    {
-                      setVariantError("");
-                      setVariants((cur) => cur.filter((_, i) => i !== index));
-                    }
-                  }
+                  onClick={() => {
+                    setVariantError("");
+                    setVariants((cur) => cur.filter((_, i) => i !== index));
+                  }}
                   className="mt-3 text-xs font-medium text-rose-600 hover:text-rose-700"
                 >
                   Remove variant
@@ -357,54 +460,100 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
             <ImagePlus size={19} aria-hidden="true" />
           </span>
           <div>
-            <label htmlFor="productImages" className="block text-sm font-semibold text-slate-900">
+            <label
+              htmlFor="productImages"
+              className="block text-sm font-semibold text-slate-900"
+            >
               Product images
             </label>
             <p className="mt-1 text-sm leading-5 text-slate-500">
-              Add photos for the product gallery. The first photo is used as the main image.
+              Add photos for the product gallery. The first photo is used as the
+              main image.
             </p>
           </div>
         </div>
 
-        <label htmlFor="productImages" className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50/40">
-          <span className="text-sm font-medium text-slate-800">Choose product photos</span>
-          <span className="mt-1 text-xs text-slate-500">JPG, PNG or WEBP · Up to 5 MB each · Select multiple</span>
-          <input id="productImages" type="file" accept="image/jpeg,image/png,image/webp" multiple
+        <label
+          htmlFor="productImages"
+          className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50/40"
+        >
+          <span className="text-sm font-medium text-slate-800">
+            Choose product photos
+          </span>
+          <span className="mt-1 text-xs text-slate-500">
+            JPG, PNG or WEBP · Up to 5 MB each · Select multiple
+          </span>
+          <input
+            id="productImages"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
             onChange={(event) => {
-              imagePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
-              const selected = Array.from(event.target.files ?? []).map((file) => ({
-                file,
-                previewUrl: URL.createObjectURL(file),
-              }));
-              imagePreviewUrls.current = selected.map((image) => image.previewUrl);
+              imagePreviewUrls.current.forEach((url) =>
+                URL.revokeObjectURL(url),
+              );
+              const selected = Array.from(event.target.files ?? []).map(
+                (file) => ({
+                  file,
+                  previewUrl: URL.createObjectURL(file),
+                }),
+              );
+              imagePreviewUrls.current = selected.map(
+                (image) => image.previewUrl,
+              );
               setImages(selected);
               setImageError("");
             }}
-            className="sr-only" />
+            className="sr-only"
+          />
         </label>
 
         {images.length > 0 && (
           <div className="mt-5">
             <p className="mb-3 text-sm font-medium text-slate-700">
-              Selected photos <span className="font-normal text-slate-500">({images.length})</span>
+              Selected photos{" "}
+              <span className="font-normal text-slate-500">
+                ({images.length})
+              </span>
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {images.map((image, index) => (
-                <div key={`${image.file.name}-${index}`} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                  <div role="img" aria-label={`Preview of ${image.file.name}`} className="aspect-[4/5] bg-cover bg-center"
-                    style={{ backgroundImage: `url("${image.previewUrl}")` }} />
-                  <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ${index === 0 ? "bg-slate-900 text-white" : "bg-white/95 text-slate-700"}`}>
+                <div
+                  key={`${image.file.name}-${index}`}
+                  className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+                >
+                  <div
+                    role="img"
+                    aria-label={`Preview of ${image.file.name}`}
+                    className="aspect-[4/5] bg-cover bg-center"
+                    style={{ backgroundImage: `url("${image.previewUrl}")` }}
+                  />
+                  <span
+                    className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ${index === 0 ? "bg-slate-900 text-white" : "bg-white/95 text-slate-700"}`}
+                  >
                     {index === 0 ? "Main image" : `Image ${index + 1}`}
                   </span>
-                  <button type="button" aria-label={`Remove ${image.file.name}`} onClick={() => {
-                    URL.revokeObjectURL(image.previewUrl);
-                    const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
-                    imagePreviewUrls.current = nextImages.map((selectedImage) => selectedImage.previewUrl);
-                    setImages(nextImages);
-                  }} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm transition hover:bg-rose-50 hover:text-rose-700">
+                  <button
+                    type="button"
+                    aria-label={`Remove ${image.file.name}`}
+                    onClick={() => {
+                      URL.revokeObjectURL(image.previewUrl);
+                      const nextImages = images.filter(
+                        (_, imageIndex) => imageIndex !== index,
+                      );
+                      imagePreviewUrls.current = nextImages.map(
+                        (selectedImage) => selectedImage.previewUrl,
+                      );
+                      setImages(nextImages);
+                    }}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-sm transition hover:bg-rose-50 hover:text-rose-700"
+                  >
                     <X size={16} aria-hidden="true" />
                   </button>
-                  <div className="truncate border-t border-slate-200 bg-white px-3 py-2 text-xs text-slate-600" title={image.file.name}>
+                  <div
+                    className="truncate border-t border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
+                    title={image.file.name}
+                  >
                     {image.file.name}
                   </div>
                 </div>
@@ -413,14 +562,24 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
           </div>
         )}
 
-        {imageProgress && <p role="status" className="mt-3 text-sm text-blue-700">{imageProgress}</p>}
-        {imageError && <p role="alert" className="mt-3 text-sm text-amber-700">{imageError}</p>}
+        {imageProgress && (
+          <p role="status" className="mt-3 text-sm text-blue-700">
+            {imageProgress}
+          </p>
+        )}
+        {imageError && (
+          <p role="alert" className="mt-3 text-sm text-amber-700">
+            {imageError}
+          </p>
+        )}
       </section>
 
       {state.message && (
         <p
           className={`rounded-lg px-4 py-3 text-sm ${
-            state.success ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+            state.success
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-rose-50 text-rose-700"
           }`}
         >
           {state.message}
@@ -428,12 +587,17 @@ export default function ProductForm({ categories }: { categories: Category[] }) 
       )}
 
       {imageError && state.productId && (
-        <a href={`/admin/products/${state.productId}`} className="inline-flex rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50">
+        <a
+          href={`/admin/products/${state.productId}`}
+          className="inline-flex rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+        >
           Continue to product images
         </a>
       )}
 
-      <SubmitButton pendingText="Creating product..." disabled={state.success}>Create product</SubmitButton>
+      <SubmitButton pendingText="Creating product..." disabled={state.success}>
+        Create product
+      </SubmitButton>
     </form>
   );
 }

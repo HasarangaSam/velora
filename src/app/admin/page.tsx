@@ -21,7 +21,7 @@ import OrdersAwaitingProcessingQueue, {
   ConfirmedOrderItem,
 } from "@/components/admin/OrdersAwaitingProcessingQueue";
 
-export const revalidate = 0; // Dynamic dashboard
+export const revalidate = 0; // Dynamic dashboard; the admin metrics should refresh on each request.
 
 type DashboardStats = {
   totalSales: number;
@@ -33,6 +33,8 @@ type DashboardStats = {
   totalCustomers: number;
 };
 
+// The dashboard aggregates several order and product metrics, so we cache the summary briefly
+// to avoid repeating expensive database work while still keeping the numbers fresh.
 async function getDashboardStats(): Promise<DashboardStats> {
   const cacheKey = "velora:admin:stats";
   const cached = await getCache<DashboardStats>(cacheKey);
@@ -76,6 +78,7 @@ async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 export default async function AdminDashboardPage() {
+  // Use a fixed 30-day window for the revenue and order trend charts.
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
   thirtyDaysAgo.setHours(0, 0, 0, 0);
@@ -148,18 +151,21 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
-  const confirmedOrdersQueue: ConfirmedOrderItem[] = unprocessedOrdersRaw.map((o) => ({
-    id: o.id,
-    orderNumber: o.orderNumber,
-    createdAt: o.createdAt.toISOString(),
-    total: Number(o.total),
-    itemCount: o.items.reduce((acc, it) => acc + it.quantity, 0),
-    shippingFullName: o.shippingFullName,
-    shippingCity: o.shippingCity,
-    customerEmail: o.user.email,
-  }));
+  // Convert the raw order records into the shape expected by the processing queue component.
+  const confirmedOrdersQueue: ConfirmedOrderItem[] = unprocessedOrdersRaw.map(
+    (o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      createdAt: o.createdAt.toISOString(),
+      total: Number(o.total),
+      itemCount: o.items.reduce((acc, it) => acc + it.quantity, 0),
+      shippingFullName: o.shippingFullName,
+      shippingCity: o.shippingCity,
+      customerEmail: o.user.email,
+    }),
+  );
 
-  // Compute 30-day and 7-day daily data for sales & revenue line/area chart
+  // Build the daily revenue and order totals used by the sales line chart.
   const dailyMap = new Map<string, { revenue: number; orders: number }>();
   for (let i = 29; i >= 0; i--) {
     const d = new Date();
@@ -179,16 +185,21 @@ export default async function AdminDashboardPage() {
     }
   }
 
-  const data30Days: DailyDataPoint[] = Array.from(dailyMap.entries()).map(([dateStr, val]) => {
-    const d = new Date(dateStr + "T00:00:00");
-    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return {
-      date: dateStr,
-      label,
-      revenue: Math.round(val.revenue),
-      orders: val.orders,
-    };
-  });
+  const data30Days: DailyDataPoint[] = Array.from(dailyMap.entries()).map(
+    ([dateStr, val]) => {
+      const d = new Date(dateStr + "T00:00:00");
+      const label = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      return {
+        date: dateStr,
+        label,
+        revenue: Math.round(val.revenue),
+        orders: val.orders,
+      };
+    },
+  );
 
   const data7Days = data30Days.slice(-7);
 
@@ -248,7 +259,8 @@ export default async function AdminDashboardPage() {
           </span>
           <h1 className="text-3xl font-bold text-slate-900 mt-1">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Real-time business performance, sales trends, and fulfillment analytics.
+            Real-time business performance, sales trends, and fulfillment
+            analytics.
           </p>
         </div>
 
@@ -284,7 +296,10 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="mt-4">
             <p className="text-2xl font-bold text-slate-900">
-              LKR {stats.totalSales.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              LKR{" "}
+              {stats.totalSales.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+              })}
             </p>
             <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
               <TrendingUp size={14} />
@@ -409,9 +424,12 @@ export default async function AdminDashboardPage() {
       {/* Analytics & Graphs Section */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Analytics & Insights</h2>
+          <h2 className="text-xl font-bold text-slate-900">
+            Analytics & Insights
+          </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Interactive visual charts analyzing store revenue, order pipeline, categories, and customer feedback.
+            Interactive visual charts analyzing store revenue, order pipeline,
+            categories, and customer feedback.
           </p>
         </div>
 
@@ -507,8 +525,8 @@ export default async function AdminDashboardPage() {
                           order.paymentStatus === "PAID"
                             ? "bg-emerald-50 text-emerald-700"
                             : order.paymentStatus === "PENDING"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-rose-50 text-rose-700"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-rose-50 text-rose-700"
                         }`}
                       >
                         {order.paymentStatus}
@@ -517,13 +535,15 @@ export default async function AdminDashboardPage() {
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          order.status === "CONFIRMED" || order.status === "DELIVERED"
+                          order.status === "CONFIRMED" ||
+                          order.status === "DELIVERED"
                             ? "bg-blue-50 text-blue-700"
-                            : order.status === "PROCESSING" || order.status === "SHIPPED"
-                            ? "bg-indigo-50 text-indigo-700"
-                            : order.status === "CANCELLED"
-                            ? "bg-slate-100 text-slate-600"
-                            : "bg-amber-50 text-amber-700"
+                            : order.status === "PROCESSING" ||
+                                order.status === "SHIPPED"
+                              ? "bg-indigo-50 text-indigo-700"
+                              : order.status === "CANCELLED"
+                                ? "bg-slate-100 text-slate-600"
+                                : "bg-amber-50 text-amber-700"
                         }`}
                       >
                         {order.status}

@@ -22,6 +22,8 @@ type Props = {
   pageSize?: number;
 };
 
+// This list keeps local review pagination state so users can load more approved reviews without a
+// full page refresh.
 export default function ProductReviewsList({
   productId,
   initialReviews,
@@ -40,7 +42,11 @@ export default function ProductReviewsList({
     setError("");
 
     try {
-      const res = await getMoreProductReviews(productId, reviews.length, pageSize);
+      const res = await getMoreProductReviews(
+        productId,
+        reviews.length,
+        pageSize,
+      );
       if (res.success && res.reviews.length > 0) {
         setReviews((prev) => [...prev, ...res.reviews]);
       } else if (!res.success) {
@@ -81,7 +87,9 @@ export default function ProductReviewsList({
                   })}
                 </time>
               </div>
-              <h3 className="mt-3 font-semibold text-slate-900">{review.title}</h3>
+              <h3 className="mt-3 font-semibold text-slate-900">
+                {review.title}
+              </h3>
               <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">
                 {review.comment}
               </p>

@@ -11,6 +11,8 @@ type CartItemProps = {
   disabled?: boolean;
 };
 
+// Cart item rows are simple read/write controls for quantity changes and removal, regardless of the
+// active cart mode.
 export default function CartItem({
   item,
   onUpdate,

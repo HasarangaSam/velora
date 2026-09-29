@@ -6,7 +6,13 @@ import { Search, X } from "lucide-react";
 import Image from "next/image";
 import { getCurrentPrice } from "@/lib/product-pricing";
 
-type Suggestion = { name: string; slug: string; image: string | null; price: string; salePrice: string | null };
+type Suggestion = {
+  name: string;
+  slug: string;
+  image: string | null;
+  price: string;
+  salePrice: string | null;
+};
 type Props = {
   value: string;
   onChange: (value: string) => void;
@@ -21,10 +27,22 @@ type Props = {
   onFocusChange?: (focused: boolean) => void;
 };
 
+// The search input uses a debounced API call to fetch live suggestions without slowing down the page.
 export default function ProductSearchInput({
-  value, onChange, onSubmit, onClear, onSelect, placeholder = "Search products...", className = "", inputClassName = "",
-  id, label, onFocusChange,
+  value,
+  onChange,
+  onSubmit,
+  onClear,
+  onSelect,
+  placeholder = "Search products...",
+  className = "",
+  inputClassName = "",
+  id,
+  label,
+  onFocusChange,
 }: Props) {
+  // Suggestions are kept local so the quick-search dropdown can render immediately and still remain
+  // consistent with the server-side search results.
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionQuery, setSuggestionQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -39,7 +57,10 @@ export default function ProductSearchInput({
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+        const response = await fetch(
+          `/api/search?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal },
+        );
         const data = await response.json();
         setSuggestions(data.products ?? []);
         setSuggestionQuery(query);
@@ -52,7 +73,10 @@ export default function ProductSearchInput({
         if (!controller.signal.aborted) setLoading(false);
       }
     }, 220);
-    return () => { window.clearTimeout(timer); controller.abort(); };
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [value]);
 
   useEffect(() => {
@@ -71,16 +95,32 @@ export default function ProductSearchInput({
 
   return (
     <div ref={rootRef} className={`relative ${className}`}>
-      {label && <label htmlFor={id} className="mb-2 block text-xs font-medium text-slate-600">{label}</label>}
+      {label && (
+        <label
+          htmlFor={id}
+          className="mb-2 block text-xs font-medium text-slate-600"
+        >
+          {label}
+        </label>
+      )}
       <form onSubmit={submit} className="relative">
-        <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+        />
         <input
           id={id}
           type="text"
           role="combobox"
           value={value}
-          onChange={(event) => { onChange(event.target.value); setOpen(true); }}
-          onFocus={() => { setOpen(true); onFocusChange?.(true); }}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => {
+            setOpen(true);
+            onFocusChange?.(true);
+          }}
           onBlur={() => onFocusChange?.(false)}
           placeholder={placeholder}
           autoComplete="off"
@@ -107,31 +147,62 @@ export default function ProductSearchInput({
         )}
       </form>
       {open && value.trim().length >= 2 && (
-        <div id={listboxId} role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl">
-          {(suggestionQuery === value.trim() ? suggestions : []).map((product) => (
-            <Link
-              key={product.slug}
-              role="option"
-              href={`/products/${product.slug}`}
-              onClick={() => {
-                setOpen(false);
-                onChange("");
-                setSuggestions([]);
-                onSelect?.(product);
-              }}
-              className="flex items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-0 hover:bg-stone-50"
-            >
-              <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-stone-100">
-                {product.image && <Image src={product.image} alt="" width={40} height={48} className="h-full w-full object-cover" />}
-              </div>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800">{product.name}</span>
-              <span className="shrink-0 text-xs text-stone-500">LKR {getCurrentPrice(product).toLocaleString("en-LK")}</span>
-            </Link>
-          ))}
-          {loading && <p className="px-4 py-3 text-xs text-stone-500">Searching…</p>}
-          {!loading && (suggestionQuery !== value.trim() || suggestions.length === 0) && <p className="px-4 py-3 text-xs text-stone-500">No matching products yet.</p>}
-          <button type="button" onClick={() => { onSubmit(value); setOpen(false); }}
-            className="w-full border-t border-stone-100 px-4 py-3 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-xl"
+        >
+          {(suggestionQuery === value.trim() ? suggestions : []).map(
+            (product) => (
+              <Link
+                key={product.slug}
+                role="option"
+                href={`/products/${product.slug}`}
+                onClick={() => {
+                  setOpen(false);
+                  onChange("");
+                  setSuggestions([]);
+                  onSelect?.(product);
+                }}
+                className="flex items-center gap-3 border-b border-stone-100 px-3 py-2.5 last:border-0 hover:bg-stone-50"
+              >
+                <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-stone-100">
+                  {product.image && (
+                    <Image
+                      src={product.image}
+                      alt=""
+                      width={40}
+                      height={48}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-stone-800">
+                  {product.name}
+                </span>
+                <span className="shrink-0 text-xs text-stone-500">
+                  LKR {getCurrentPrice(product).toLocaleString("en-LK")}
+                </span>
+              </Link>
+            ),
+          )}
+          {loading && (
+            <p className="px-4 py-3 text-xs text-stone-500">Searching…</p>
+          )}
+          {!loading &&
+            (suggestionQuery !== value.trim() || suggestions.length === 0) && (
+              <p className="px-4 py-3 text-xs text-stone-500">
+                No matching products yet.
+              </p>
+            )}
+          <button
+            type="button"
+            onClick={() => {
+              onSubmit(value);
+              setOpen(false);
+            }}
+            className="w-full border-t border-stone-100 px-4 py-3 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50"
+          >
             View all results for “{value.trim()}”
           </button>
         </div>

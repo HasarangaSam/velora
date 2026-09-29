@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import { Heart } from "lucide-react";
 import { setWishlistItem } from "@/app/account/wishlist/actions";
 
+// Wishlist updates are optimistic on the client and then reconciled with the server action result,
+// which keeps the interaction fast while still being resilient to failures.
 export default function WishlistButton({
   productId,
   productName,
@@ -46,15 +48,20 @@ export default function WishlistButton({
       }
       setMessage(result.message);
       if (typeof result.count === "number") {
-        window.dispatchEvent(new CustomEvent("velora:wishlist-count", { detail: result.count }));
+        window.dispatchEvent(
+          new CustomEvent("velora:wishlist-count", { detail: result.count }),
+        );
       }
       router.refresh();
     });
   }
 
-  const title = status === "authenticated"
-    ? saved ? "Remove from wishlist" : "Save to wishlist"
-    : "Sign in to save to wishlist";
+  const title =
+    status === "authenticated"
+      ? saved
+        ? "Remove from wishlist"
+        : "Save to wishlist"
+      : "Sign in to save to wishlist";
 
   if (variant === "label") {
     return (
@@ -68,9 +75,17 @@ export default function WishlistButton({
           title={title}
         >
           <Heart size={17} className={saved ? "fill-current" : ""} />
-          {pending ? "Updating…" : saved ? "Saved to wishlist" : "Add to wishlist"}
+          {pending
+            ? "Updating…"
+            : saved
+              ? "Saved to wishlist"
+              : "Add to wishlist"}
         </button>
-        {message && <p role="status" className="mt-2 text-xs text-slate-500">{message}</p>}
+        {message && (
+          <p role="status" className="mt-2 text-xs text-slate-500">
+            {message}
+          </p>
+        )}
       </div>
     );
   }
@@ -88,7 +103,11 @@ export default function WishlistButton({
       >
         <Heart size={18} className={saved ? "fill-current" : ""} />
       </button>
-      {message && <span role="status" className="sr-only">{message}</span>}
+      {message && (
+        <span role="status" className="sr-only">
+          {message}
+        </span>
+      )}
     </div>
   );
 }

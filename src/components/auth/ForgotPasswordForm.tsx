@@ -29,8 +29,12 @@ function SubmitButton() {
 
 const initialState: ForgotPasswordState = { success: false, message: "" };
 
+// This page initiates the password reset email flow and tells the user to check their inbox.
 export default function ForgotPasswordForm() {
-  const [state, formAction] = useActionState(requestPasswordReset, initialState);
+  const [state, formAction] = useActionState(
+    requestPasswordReset,
+    initialState,
+  );
 
   return (
     <div className="w-full max-w-md">
@@ -41,7 +45,9 @@ export default function ForgotPasswordForm() {
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
           Password Reset
         </p>
-        <h1 className="mt-3 text-3xl font-bold text-slate-900">Forgot your password?</h1>
+        <h1 className="mt-3 text-3xl font-bold text-slate-900">
+          Forgot your password?
+        </h1>
         <p className="mt-2 text-sm text-slate-500">
           No worries! Enter your email and we&apos;ll send you a reset link.
         </p>
@@ -53,11 +59,13 @@ export default function ForgotPasswordForm() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
               <Send size={22} className="text-green-600" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">Check your email</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Check your email
+            </h2>
             <p className="mt-2 text-sm text-slate-500">{state.message}</p>
             <p className="mt-4 text-xs text-slate-400">
-              The link expires in <strong>15 minutes</strong>. Check your spam folder if you
-              don&apos;t see it.
+              The link expires in <strong>15 minutes</strong>. Check your spam
+              folder if you don&apos;t see it.
             </p>
             <Link
               href="/login"

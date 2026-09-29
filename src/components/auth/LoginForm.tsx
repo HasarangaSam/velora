@@ -7,13 +7,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
+// The login form manages credential sign-in, redirect handling, and the friendly verification
+// status messages shown after email or password actions.
 export default function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const requestedCallback = params.get("callbackUrl");
-  const callbackUrl = requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
-    ? requestedCallback
-    : "/account";
+  const callbackUrl =
+    requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
+      ? requestedCallback
+      : "/account";
 
   const isVerified = params.get("verified") === "true";
   const isPasswordReset = params.get("passwordReset") === "true";
@@ -26,6 +29,8 @@ export default function LoginForm() {
   const [showVerifyHint, setShowVerifyHint] = useState(false);
   const [pending, setPending] = useState(false);
 
+  // Credentials sign-in is done without a full page reload so the callback redirect can still
+  // redirect the user to their intended destination.
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -40,7 +45,9 @@ export default function LoginForm() {
     });
 
     if (!result || result.error) {
-      setError("Invalid email or password. If you just registered, please verify your email first.");
+      setError(
+        "Invalid email or password. If you just registered, please verify your email first.",
+      );
       setShowVerifyHint(true);
       setPending(false);
       return;
@@ -207,7 +214,11 @@ export default function LoginForm() {
         <p className="mt-6 text-center text-sm text-slate-500">
           Don&apos;t have an account?{" "}
           <Link
-            href={callbackUrl !== "/account" ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/register"}
+            href={
+              callbackUrl !== "/account"
+                ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                : "/register"
+            }
             className="font-semibold text-blue-600 hover:text-blue-700"
           >
             Create one

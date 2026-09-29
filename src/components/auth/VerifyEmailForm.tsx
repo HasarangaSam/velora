@@ -33,6 +33,8 @@ function VerifySubmitButton() {
 // ---------------------------------------------------------------------------
 const initialState: VerifyOtpActionState = { success: false, message: "" };
 
+// The email verification form collects a 6-digit OTP, validates it server-side, and then sends the
+// user back to login with a verified status flag.
 export default function VerifyEmailForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -40,16 +42,23 @@ export default function VerifyEmailForm() {
   // email may come from query param (after redirect from register page)
   const emailFromQuery = params.get("email") ?? "";
   const requestedCallback = params.get("callbackUrl");
-  const callbackUrl = requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
-    ? requestedCallback
-    : null;
+  const callbackUrl =
+    requestedCallback?.startsWith("/") && !requestedCallback.startsWith("//")
+      ? requestedCallback
+      : null;
   const [email] = useState(emailFromQuery);
 
   // ---- verify OTP state
-  const [verifyState, verifyAction] = useActionState(verifyRegistrationOtp, initialState);
+  const [verifyState, verifyAction] = useActionState(
+    verifyRegistrationOtp,
+    initialState,
+  );
 
   // ---- resend OTP state (separate action)
-  const [resendState, resendAction] = useActionState(resendRegistrationOtp, initialState);
+  const [resendState, resendAction] = useActionState(
+    resendRegistrationOtp,
+    initialState,
+  );
   const [resendCooldown, setResendCooldown] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -57,7 +66,7 @@ export default function VerifyEmailForm() {
   const [digits, setDigits] = useState(["", "", "", "", "", ""]);
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-  // Redirect on successful verification
+  // Redirect on successful verification so the user lands on the login page with a clear success message.
   useEffect(() => {
     if (verifyState.success) {
       const timer = setTimeout(() => {
@@ -109,14 +118,20 @@ export default function VerifyEmailForm() {
     }
   }
 
-  function handleDigitKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {
+  function handleDigitKeyDown(
+    index: number,
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) {
     if (event.key === "Backspace" && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   }
 
   function handlePaste(event: React.ClipboardEvent<HTMLInputElement>) {
-    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    const pasted = event.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
     if (pasted.length > 0) {
       event.preventDefault();
       const next = [...digits];
@@ -139,7 +154,9 @@ export default function VerifyEmailForm() {
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
           Email Verification
         </p>
-        <h1 className="mt-3 text-3xl font-bold text-slate-900">Check your inbox</h1>
+        <h1 className="mt-3 text-3xl font-bold text-slate-900">
+          Check your inbox
+        </h1>
         <p className="mt-2 text-sm text-slate-500">
           {email ? (
             <>
@@ -207,7 +224,9 @@ export default function VerifyEmailForm() {
         {/* Divider */}
         <div className="my-5 flex items-center gap-4">
           <div className="h-px flex-1 bg-slate-100" />
-          <span className="text-xs text-slate-400">Didn&apos;t receive it?</span>
+          <span className="text-xs text-slate-400">
+            Didn&apos;t receive it?
+          </span>
           <div className="h-px flex-1 bg-slate-100" />
         </div>
 

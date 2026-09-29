@@ -26,6 +26,8 @@ function SubmitButton() {
 
 const initialState: ResetPasswordState = { success: false, message: "" };
 
+// This form handles a one-time password reset link and confirms the new password before sending
+// the user back to the login screen.
 export default function ResetPasswordForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -35,9 +37,13 @@ export default function ResetPasswordForm() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [state, formAction] = useActionState(resetPassword, initialState);
 
+  // A successful reset immediately sends the user back to sign in with a short confirmation message.
   useEffect(() => {
     if (state.success) {
-      const timer = setTimeout(() => router.push("/login?passwordReset=true"), 2000);
+      const timer = setTimeout(
+        () => router.push("/login?passwordReset=true"),
+        2000,
+      );
       return () => clearTimeout(timer);
     }
   }, [state.success, router]);
@@ -45,7 +51,9 @@ export default function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="w-full max-w-md rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-        <h1 className="text-lg font-semibold text-red-800">Invalid reset link</h1>
+        <h1 className="text-lg font-semibold text-red-800">
+          Invalid reset link
+        </h1>
         <p className="mt-2 text-sm text-red-600">
           This link is invalid or has already been used.
         </p>
@@ -68,7 +76,9 @@ export default function ResetPasswordForm() {
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
           New Password
         </p>
-        <h1 className="mt-3 text-3xl font-bold text-slate-900">Reset your password</h1>
+        <h1 className="mt-3 text-3xl font-bold text-slate-900">
+          Reset your password
+        </h1>
         <p className="mt-2 text-sm text-slate-500">
           Choose a strong password that you haven&apos;t used before.
         </p>
@@ -80,9 +90,13 @@ export default function ResetPasswordForm() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
               <ShieldCheck size={24} className="text-green-600" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">Password updated!</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Password updated!
+            </h2>
             <p className="mt-2 text-sm text-slate-500">{state.message}</p>
-            <p className="mt-3 text-xs text-slate-400">Redirecting you to sign in…</p>
+            <p className="mt-3 text-xs text-slate-400">
+              Redirecting you to sign in…
+            </p>
           </div>
         ) : (
           <form action={formAction} className="space-y-5">
@@ -124,9 +138,13 @@ export default function ResetPasswordForm() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-slate-500">At least 8 characters, one uppercase letter, and one symbol.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                At least 8 characters, one uppercase letter, and one symbol.
+              </p>
               {state.errors?.password && (
-                <p className="mt-1 text-xs text-red-600">{state.errors.password[0]}</p>
+                <p className="mt-1 text-xs text-red-600">
+                  {state.errors.password[0]}
+                </p>
               )}
             </div>
 
@@ -158,7 +176,11 @@ export default function ResetPasswordForm() {
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                  aria-label={
+                    showConfirm
+                      ? "Hide confirm password"
+                      : "Show confirm password"
+                  }
                 >
                   {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -180,7 +202,10 @@ export default function ResetPasswordForm() {
 
             <p className="text-center text-sm text-slate-500">
               Remember your password?{" "}
-              <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-700">
+              <Link
+                href="/login"
+                className="font-semibold text-blue-600 hover:text-blue-700"
+              >
                 Sign in
               </Link>
             </p>

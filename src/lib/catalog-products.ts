@@ -4,6 +4,8 @@ import { redis } from "@/lib/redis";
 import { catalogQuerySchema } from "@/lib/validation/catalog";
 import { getCurrentPrice } from "@/lib/product-pricing";
 
+// Storefront catalog responses are paginated and cached to keep the shop fast while still
+// reflecting the current product filters and stock state.
 const PRODUCTS_PER_PAGE = 12;
 const CACHE_TTL = 60;
 
@@ -61,6 +63,8 @@ function buildCacheKey(query: z.infer<typeof catalogQuerySchema>) {
 export async function getCatalogProducts(
   rawQuery: CatalogQuery,
 ): Promise<CatalogResult> {
+  // Validate the incoming search params before building the Prisma query, while still allowing
+  // the page defaults to remain valid when a filter is omitted.
   const parsed = catalogQuerySchema.safeParse(rawQuery);
 
   const query = parsed.success ? parsed.data : catalogQuerySchema.parse({});
@@ -77,6 +81,8 @@ export async function getCatalogProducts(
     console.error("Redis catalog read error:", error);
   }
 
+  // Base conditions keep only active products with current stock so the product grid never shows
+  // unavailable inventory.
   const andConditions: Record<string, unknown>[] = [
     { isActive: true },
     {
@@ -143,6 +149,8 @@ export async function getCatalogProducts(
     andConditions.push({ salePrice: { not: null } });
   }
 
+  // Price sorting is handled after filtering because the displayed price may come from a sale value
+  // rather than the raw product price in the database.
   const where = {
     AND: andConditions,
   };
@@ -222,7 +230,9 @@ export async function getCatalogProducts(
       return query.sort === "price-low" ? difference : -difference;
     });
   }
-  const pageProducts = isPriceSort ? products.slice(skip, skip + PRODUCTS_PER_PAGE) : products;
+  const pageProducts = isPriceSort
+    ? products.slice(skip, skip + PRODUCTS_PER_PAGE)
+    : products;
 
   const result = {
     products: pageProducts.map((product) => ({

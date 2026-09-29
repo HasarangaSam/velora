@@ -17,6 +17,7 @@ type ProductImageManagerProps = {
   initialImages: ProductImage[];
 };
 
+// The image manager handles uploads, primary-image selection, and gallery ordering without a page reload.
 export default function ProductImageManager({
   productId,
   initialImages,
@@ -36,8 +37,11 @@ export default function ProductImageManager({
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Upload multiple files in sequence while keeping a progress message for the current file.
   async function uploadFiles(fileList: FileList | File[]) {
-    const files = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
+    const files = Array.from(fileList).filter((f) =>
+      f.type.startsWith("image/"),
+    );
 
     if (files.length === 0) {
       setError(true);
@@ -69,10 +73,13 @@ export default function ProductImageManager({
         const formData = new FormData();
         formData.append("image", file);
 
-        const response = await fetch(`/api/admin/products/${productId}/images`, {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetch(
+          `/api/admin/products/${productId}/images`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
 
         const data = await response.json();
 
@@ -336,7 +343,8 @@ export default function ProductImageManager({
             : "Click to browse or drag & drop multiple images"}
         </p>
         <p className="mt-1 text-xs text-slate-400">
-          JPG, PNG, WEBP up to 5 MB each. You can select multiple images at once.
+          JPG, PNG, WEBP up to 5 MB each. You can select multiple images at
+          once.
         </p>
       </div>
 
@@ -418,7 +426,11 @@ export default function ProductImageManager({
                   type="button"
                   disabled={busyImageId === image.id || images.length <= 1}
                   onClick={() => deleteImage(image)}
-                  title={images.length <= 1 ? "A product must have at least one image." : undefined}
+                  title={
+                    images.length <= 1
+                      ? "A product must have at least one image."
+                      : undefined
+                  }
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Trash2 className="h-4 w-4" />

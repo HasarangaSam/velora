@@ -33,6 +33,8 @@ type CouponState =
     }
   | { status: "invalid"; message: string };
 
+// The checkout client handles the heavy UI work: loading cart data, selecting addresses,
+// validating coupons, and creating the order before redirecting to payment.
 export default function CheckoutPageClient({
   buyNow,
 }: {
@@ -118,7 +120,7 @@ export default function CheckoutPageClient({
 
   const clearCart = useCartStore((state) => state.clear);
 
-  // Derived totals — updated whenever cart or coupon state changes
+  // Derived totals update whenever the cart contents or discount state changes.
   const subtotal = cart ? Number(cart.subtotal) : 0;
 
   const derivedShipping =
@@ -126,6 +128,7 @@ export default function CheckoutPageClient({
   const derivedTotal =
     coupon.status === "valid" ? coupon.total : subtotal + SHIPPING_COST;
 
+  // Coupon validation happens on the server so the business rules remain centralized.
   async function handleApplyCoupon() {
     const code = couponCode.trim();
     if (!code) return;
@@ -184,6 +187,8 @@ export default function CheckoutPageClient({
     setCouponCode("");
   }
 
+  // Submit a single order request and attach an idempotency key to prevent duplicate checkout
+  // submissions if the user clicks the button repeatedly.
   async function handleCreateOrder() {
     if (!selectedAddressId) {
       setSubmitError("Please select a delivery address.");

@@ -23,6 +23,8 @@ type ProductCardProps = {
   isSaved?: boolean;
 };
 
+// Format product values in Sri Lankan Rupees so the card UI stays consistent across
+// regular and discounted pricing.
 function formatPrice(price: number | string) {
   return `LKR ${Number(price).toLocaleString("en-LK", {
     minimumFractionDigits: 2,
@@ -34,6 +36,7 @@ export default function ProductCard({
   product,
   isSaved = false,
 }: ProductCardProps) {
+  // The card derives the effective selling price and discount badge from the shared pricing helper.
   const discountPercent = getDiscountPercent(product);
 
   return (

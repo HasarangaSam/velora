@@ -9,6 +9,7 @@ const slides = [
   { src: "/3.png", alt: "Discover the latest looks from Velora" },
 ];
 
+// The homepage hero rotates through a few curated brand slides and automatically advances on a timer.
 export default function HeroCarousel() {
   const [activeSlide, setActiveSlide] = useState(0);
 

@@ -25,6 +25,8 @@ type ProductPurchaseProps = {
   variants: ProductVariant[];
 };
 
+// This component owns the purchase controls for a product: variant selection, cart updates,
+// and the buy-now redirect flow.
 export default function ProductPurchase({
   productId,
   productName,
@@ -51,6 +53,7 @@ export default function ProductPurchase({
   const [message, setMessage] = useState("");
   const [addedSuccess, setAddedSuccess] = useState(false);
 
+  // Compute the currently valid variant choices based on the available product combinations.
   const availableSizes = useMemo(
     () => Array.from(new Set(variants.map((variant) => variant.size))),
     [variants],
@@ -184,15 +187,43 @@ export default function ProductPurchase({
   return (
     <div className="mt-7 space-y-6 border-t border-stone-200 pt-6">
       <div>
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className="text-2xl font-semibold tracking-tight text-stone-950">LKR {currentPrice.toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>{discountPercent !== null && <><span className="text-base text-stone-500 line-through">LKR {Number(price).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Save {discountPercent}%</span></>}</div>
-        <p className="mt-1 text-xs text-stone-500">Taxes included · Shipping calculated at checkout</p>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="text-2xl font-semibold tracking-tight text-stone-950">
+            LKR{" "}
+            {currentPrice.toLocaleString("en-LK", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+          {discountPercent !== null && (
+            <>
+              <span className="text-base text-stone-500 line-through">
+                LKR{" "}
+                {Number(price).toLocaleString("en-LK", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+              <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                Save {discountPercent}%
+              </span>
+            </>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-stone-500">
+          Taxes included · Shipping calculated at checkout
+        </p>
       </div>
 
       {availableSizes.length === 1 && availableSizes[0] === "One Size" ? (
-        <p className="text-sm text-stone-600">One size · no size selection needed</p>
+        <p className="text-sm text-stone-600">
+          One size · no size selection needed
+        </p>
       ) : (
         <div>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">Choose size</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">
+            Choose size
+          </p>
 
           <div className="flex flex-wrap gap-2">
             {availableSizes.map((size) => (
@@ -215,7 +246,9 @@ export default function ProductPurchase({
       )}
 
       <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">Choose colour</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">
+          Choose colour
+        </p>
 
         <div className="flex flex-wrap gap-2">
           {availableColours.map((colour) => {
@@ -229,12 +262,12 @@ export default function ProductPurchase({
                 onClick={() => handleColourChange(colour)}
                 className={`rounded-md border px-4 py-2 text-sm font-medium transition ${
                   selectedColour === colour
-                  ? "border-stone-950 bg-stone-950 text-white"
-                  : isAvailable
-                    ? "border-stone-300 bg-white text-stone-700 hover:border-stone-900"
-                    : "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
-              }`}
-              aria-pressed={selectedColour === colour}
+                    ? "border-stone-950 bg-stone-950 text-white"
+                    : isAvailable
+                      ? "border-stone-300 bg-white text-stone-700 hover:border-stone-900"
+                      : "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
+                }`}
+                aria-pressed={selectedColour === colour}
               >
                 {colour}
               </button>
@@ -248,7 +281,9 @@ export default function ProductPurchase({
       )}
 
       <div>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">Quantity</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700">
+          Quantity
+        </p>
 
         <div className="flex w-fit items-center rounded-lg border border-stone-300">
           <button
@@ -281,7 +316,13 @@ export default function ProductPurchase({
         <button
           type="button"
           onClick={handleAddToCart}
-          disabled={status === "loading" || isAdding || isBuyingNow || !selectedVariant || stock <= 0}
+          disabled={
+            status === "loading" ||
+            isAdding ||
+            isBuyingNow ||
+            !selectedVariant ||
+            stock <= 0
+          }
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300"
         >
           <ShoppingCart size={18} />
@@ -290,7 +331,13 @@ export default function ProductPurchase({
         <button
           type="button"
           onClick={handleBuyNow}
-          disabled={status === "loading" || isAdding || isBuyingNow || !selectedVariant || stock <= 0}
+          disabled={
+            status === "loading" ||
+            isAdding ||
+            isBuyingNow ||
+            !selectedVariant ||
+            stock <= 0
+          }
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-900 transition hover:border-stone-900 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isBuyingNow ? "Taking you to checkout…" : "Buy Now"}

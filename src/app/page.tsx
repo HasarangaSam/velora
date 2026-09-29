@@ -23,6 +23,7 @@ type HomepageProduct = {
   totalStock: number;
 };
 
+// Home page product lists are cached to reduce repeated Prisma reads on the storefront.
 async function getFeaturedProducts(): Promise<HomepageProduct[]> {
   const cacheKey = "velora:featured_products:v3";
   const cached = await getCache<HomepageProduct[]>(cacheKey);
@@ -34,10 +35,7 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
       isFeatured: true,
     },
     take: 8,
-    orderBy: [
-      { isFeatured: "desc" },
-      { createdAt: "desc" },
-    ],
+    orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
     include: {
       category: {
         select: { name: true, slug: true },
@@ -66,6 +64,8 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
   return formatted;
 }
 
+// Sale products are queried separately so the homepage can render a dedicated discount banner
+// without mixing it with the broader featured-product collection.
 async function getSaleProducts(): Promise<HomepageProduct[]> {
   const products = await prisma.product.findMany({
     where: {
@@ -95,10 +95,15 @@ async function getSaleProducts(): Promise<HomepageProduct[]> {
     image: product.images[0]?.url ?? null,
     price: product.price.toString(),
     salePrice: product.salePrice?.toString() ?? null,
-    totalStock: product.variants.reduce((total, variant) => total + variant.stock, 0),
+    totalStock: product.variants.reduce(
+      (total, variant) => total + variant.stock,
+      0,
+    ),
   }));
 }
 
+// Each category tile needs a representative product image, so we fetch the most relevant
+// image for the requested category and sub-category combination.
 async function getCategoryProductImage(
   categorySlug: string,
   subCategorySlug: string,
@@ -127,10 +132,17 @@ async function getCategoryProductImage(
 }
 
 export default async function HomePage() {
-  // Featured products depend on live database data, so defer this query until
-  // a request instead of trying to execute it during a production build.
+  // This page needs live product data during a request, so we explicitly connect to the
+  // request context before loading content that is not safe to evaluate at build time.
   await connection();
-  const [featuredProducts, saleProducts, menImage, womenImage, kidsImage, sareeImage] = await Promise.all([
+  const [
+    featuredProducts,
+    saleProducts,
+    menImage,
+    womenImage,
+    kidsImage,
+    sareeImage,
+  ] = await Promise.all([
     getFeaturedProducts(),
     getSaleProducts(),
     getCategoryProductImage("men", "men-shirts"),
@@ -147,21 +159,52 @@ export default async function HomePage() {
 
       <WelcomeOffer />
 
-      <section aria-label="Shopping benefits" className="border-b border-stone-200 bg-white">
+      <section
+        aria-label="Shopping benefits"
+        className="border-b border-stone-200 bg-white"
+      >
         <div className="mx-auto grid max-w-7xl grid-cols-1 divide-y divide-stone-200 px-5 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:px-8">
-          <div className="py-4 text-center sm:py-5"><p className="text-sm font-semibold text-stone-900">Free delivery over Rs. 10,000</p><p className="mt-1 text-xs text-stone-500">Automatically applied at checkout</p></div>
-          <div className="py-4 text-center sm:py-5"><p className="text-sm font-semibold text-stone-900">Thoughtful pieces, easy to find</p><p className="mt-1 text-xs text-stone-500">Shop by collection or occasion</p></div>
-          <div className="py-4 text-center sm:py-5"><p className="text-sm font-semibold text-stone-900">Secure PayHere checkout</p><p className="mt-1 text-xs text-stone-500">Your payment is confirmed before dispatch</p></div>
+          <div className="py-4 text-center sm:py-5">
+            <p className="text-sm font-semibold text-stone-900">
+              Free delivery over Rs. 10,000
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              Automatically applied at checkout
+            </p>
+          </div>
+          <div className="py-4 text-center sm:py-5">
+            <p className="text-sm font-semibold text-stone-900">
+              Thoughtful pieces, easy to find
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              Shop by collection or occasion
+            </p>
+          </div>
+          <div className="py-4 text-center sm:py-5">
+            <p className="text-sm font-semibold text-stone-900">
+              Secure PayHere checkout
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              Your payment is confirmed before dispatch
+            </p>
+          </div>
         </div>
       </section>
 
       {saleProducts.length > 0 && (
+        // The sale section is conditionally rendered so we do not show an empty discount block
+        // when there are no active promotional items in the catalog.
         <section aria-labelledby="homepage-sale-title" className="bg-[#f5f3ee]">
           <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
             <div className="mb-8 flex flex-col justify-between gap-4 sm:mb-10 sm:flex-row sm:items-end">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-700">Limited-time prices</p>
-                <h2 id="homepage-sale-title" className="mt-2 text-3xl font-medium tracking-tight text-stone-950 sm:text-4xl">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-700">
+                  Limited-time prices
+                </p>
+                <h2
+                  id="homepage-sale-title"
+                  className="mt-2 text-3xl font-medium tracking-tight text-stone-950 sm:text-4xl"
+                >
                   The Sale Edit
                 </h2>
               </div>
@@ -188,13 +231,23 @@ export default async function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-950/85 via-stone-950/15 to-transparent" />
                 <div className="relative mt-auto p-6 text-white sm:p-7">
                   <span className="inline-flex rounded-full border border-white/50 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] backdrop-blur-sm">
-                    Up to {Math.max(...saleProducts.map((product) => getDiscountPercent(product) ?? 0))}% off
+                    Up to{" "}
+                    {Math.max(
+                      ...saleProducts.map(
+                        (product) => getDiscountPercent(product) ?? 0,
+                      ),
+                    )}
+                    % off
                   </span>
                   <h3 className="mt-4 max-w-xs text-2xl font-medium leading-tight tracking-tight sm:text-3xl">
                     Good things, at a little less.
                   </h3>
                   <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium">
-                    Explore the edit <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                    Explore the edit{" "}
+                    <ArrowRight
+                      size={16}
+                      className="transition-transform group-hover:translate-x-1"
+                    />
                   </span>
                 </div>
               </Link>
@@ -207,7 +260,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Categories Showcase */}
+      {/* Category cards provide a quick browsing route that mirrors the storefront structure. */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:mb-10 sm:flex-row sm:items-end">
           <div>
@@ -243,7 +296,9 @@ export default async function HomePage() {
               <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-200">
                 Men
               </span>
-              <h3 className="mt-2 text-3xl font-medium tracking-tight">Men&apos;s collection</h3>
+              <h3 className="mt-2 text-3xl font-medium tracking-tight">
+                Men&apos;s collection
+              </h3>
               <p className="mt-2 max-w-xs text-sm leading-6 text-stone-200">
                 T-shirts, casual shirts, chinos & oversized fits
               </p>
@@ -261,7 +316,9 @@ export default async function HomePage() {
             <div
               className="absolute inset-0 bg-cover bg-center opacity-75 transition-transform duration-700 ease-out group-hover:scale-105"
               style={{
-                ...(womenImage ? { backgroundImage: `url("${womenImage}")` } : {}),
+                ...(womenImage
+                  ? { backgroundImage: `url("${womenImage}")` }
+                  : {}),
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -269,7 +326,9 @@ export default async function HomePage() {
               <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-200">
                 Women
               </span>
-              <h3 className="mt-2 text-3xl font-medium tracking-tight">Women&apos;s collection</h3>
+              <h3 className="mt-2 text-3xl font-medium tracking-tight">
+                Women&apos;s collection
+              </h3>
               <p className="mt-2 max-w-xs text-sm leading-6 text-stone-200">
                 Frocks, tops, linen wear & denim
               </p>
@@ -287,7 +346,9 @@ export default async function HomePage() {
             <div
               className="absolute inset-0 bg-cover bg-center opacity-75 transition-transform duration-700 ease-out group-hover:scale-105"
               style={{
-                ...(kidsImage ? { backgroundImage: `url("${kidsImage}")` } : {}),
+                ...(kidsImage
+                  ? { backgroundImage: `url("${kidsImage}")` }
+                  : {}),
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -295,7 +356,9 @@ export default async function HomePage() {
               <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-200">
                 Kids
               </span>
-              <h3 className="mt-2 text-3xl font-medium tracking-tight">Kids&apos; collection</h3>
+              <h3 className="mt-2 text-3xl font-medium tracking-tight">
+                Kids&apos; collection
+              </h3>
               <p className="mt-2 max-w-xs text-sm leading-6 text-stone-200">
                 Playful, gentle cotton tees & comfortable sets
               </p>
@@ -311,15 +374,32 @@ export default async function HomePage() {
         <div className="grid overflow-hidden rounded-[1.5rem] bg-[#eee8df] md:grid-cols-2">
           <div className="relative min-h-[300px] bg-stone-200 sm:min-h-[420px]">
             {sareeImage && (
-              <Image src={sareeImage}
-                alt="Saree from the Velora collection" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+              <Image
+                src={sareeImage}
+                alt="Saree from the Velora collection"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover"
+              />
             )}
           </div>
           <div className="flex flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 lg:py-16">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">The occasion edit</p>
-            <h2 className="mt-3 max-w-md text-3xl font-medium leading-tight tracking-tight text-stone-950 sm:text-4xl">A little more special, in every detail.</h2>
-            <p className="mt-4 max-w-md text-sm leading-6 text-stone-600">Explore statement sarees and considered pieces for celebrations, family gatherings, and the days worth dressing up for.</p>
-            <Link href="/shop?category=women-sarees" className="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-stone-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-700">Shop the saree edit <ArrowRight size={16} /></Link>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+              The occasion edit
+            </p>
+            <h2 className="mt-3 max-w-md text-3xl font-medium leading-tight tracking-tight text-stone-950 sm:text-4xl">
+              A little more special, in every detail.
+            </h2>
+            <p className="mt-4 max-w-md text-sm leading-6 text-stone-600">
+              Explore statement sarees and considered pieces for celebrations,
+              family gatherings, and the days worth dressing up for.
+            </p>
+            <Link
+              href="/shop?category=women-sarees"
+              className="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-stone-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-stone-700"
+            >
+              Shop the saree edit <ArrowRight size={16} />
+            </Link>
           </div>
         </div>
       </section>
@@ -327,59 +407,74 @@ export default async function HomePage() {
       {/* Featured Products */}
       <section className="bg-[#f5f3ee] py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:mb-10 sm:flex-row sm:items-end">
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
-              Selected for you
-            </span>
-            <h2 className="mt-2 text-3xl font-medium tracking-tight text-stone-950 sm:text-4xl">
-              Pieces to live in
-            </h2>
+          <div className="mb-8 flex flex-col justify-between gap-4 sm:mb-10 sm:flex-row sm:items-end">
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+                Selected for you
+              </span>
+              <h2 className="mt-2 text-3xl font-medium tracking-tight text-stone-950 sm:text-4xl">
+                Pieces to live in
+              </h2>
+            </div>
+            <Link
+              href="/shop"
+              className="inline-flex items-center gap-2 text-sm font-medium text-stone-700 transition hover:text-stone-950"
+            >
+              View all clothing <ArrowRight size={16} />
+            </Link>
           </div>
-          <Link
-            href="/shop"
-            className="inline-flex items-center gap-2 text-sm font-medium text-stone-700 transition hover:text-stone-950"
-          >
-            View all clothing <ArrowRight size={16} />
-          </Link>
-        </div>
 
-        {featuredProducts.length === 0 ? (
-          <div className="rounded-2xl border border-stone-200 bg-white p-12 text-center">
-            <h3 className="text-base font-medium text-stone-900">
-              Catalog is getting ready
-            </h3>
-            <p className="mt-1 text-sm text-stone-500">
-              New arrivals will be listed shortly.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+          {featuredProducts.length === 0 ? (
+            <div className="rounded-2xl border border-stone-200 bg-white p-12 text-center">
+              <h3 className="text-base font-medium text-stone-900">
+                Catalog is getting ready
+              </h3>
+              <p className="mt-1 text-sm text-stone-500">
+                New arrivals will be listed shortly.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4">
+              {featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
         <div className="flex flex-col justify-between gap-6 border-t border-stone-200 pt-8 sm:flex-row sm:items-end">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">The Velora point of view</p>
-            <h2 className="mt-3 max-w-2xl text-2xl font-medium leading-tight tracking-tight text-stone-950 sm:text-3xl">Less occasion dressing. More pieces you reach for every day.</h2>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+              The Velora point of view
+            </p>
+            <h2 className="mt-3 max-w-2xl text-2xl font-medium leading-tight tracking-tight text-stone-950 sm:text-3xl">
+              Less occasion dressing. More pieces you reach for every day.
+            </h2>
           </div>
-          <Link href="/shop" className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-stone-700 transition hover:text-stone-950">
+          <Link
+            href="/shop"
+            className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-stone-700 transition hover:text-stone-950"
+          >
             Find your next favourite <ArrowRight size={16} />
           </Link>
         </div>
       </section>
 
-      <section aria-labelledby="homepage-support-title" className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+      <section
+        aria-labelledby="homepage-support-title"
+        className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8"
+      >
         <div className="flex flex-col gap-6 rounded-[1.5rem] bg-[#eee8df] px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:py-10">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">Here to help</p>
-            <h2 id="homepage-support-title" className="mt-2 text-2xl font-medium tracking-tight text-stone-950 sm:text-3xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-500">
+              Here to help
+            </p>
+            <h2
+              id="homepage-support-title"
+              className="mt-2 text-2xl font-medium tracking-tight text-stone-950 sm:text-3xl"
+            >
               A question before you choose?
             </h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">

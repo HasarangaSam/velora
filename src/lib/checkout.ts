@@ -1,3 +1,5 @@
+// These helpers centralize the core checkout pricing rules so coupon and shipping logic stay
+// consistent across the store and the order API.
 export const SHIPPING_COST = 400;
 export const FREE_SHIPPING_THRESHOLD = 10000;
 
