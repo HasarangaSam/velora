@@ -25,6 +25,7 @@ type Props = {
   id?: string;
   label?: string;
   onFocusChange?: (focused: boolean) => void;
+  showSuggestions?: boolean;
 };
 
 // The search input uses a debounced API call to fetch live suggestions without slowing down the page.
@@ -40,6 +41,7 @@ export default function ProductSearchInput({
   id,
   label,
   onFocusChange,
+  showSuggestions = true,
 }: Props) {
   // Suggestions are kept local so the quick-search dropdown can render immediately and still remain
   // consistent with the server-side search results.
@@ -51,6 +53,7 @@ export default function ProductSearchInput({
   const listboxId = id ? `${id}-listbox` : "product-search-listbox";
 
   useEffect(() => {
+    if (!showSuggestions) return;
     const query = value.trim();
     const controller = new AbortController();
     if (query.length < 2) return () => controller.abort();
@@ -111,23 +114,23 @@ export default function ProductSearchInput({
         <input
           id={id}
           type="text"
-          role="combobox"
+          role={showSuggestions ? "combobox" : undefined}
           value={value}
           onChange={(event) => {
             onChange(event.target.value);
-            setOpen(true);
+            if (showSuggestions) setOpen(true);
           }}
           onFocus={() => {
-            setOpen(true);
+            if (showSuggestions) setOpen(true);
             onFocusChange?.(true);
           }}
           onBlur={() => onFocusChange?.(false)}
           placeholder={placeholder}
           autoComplete="off"
-          aria-autocomplete="list"
-          aria-expanded={open && value.trim().length >= 2}
-          aria-haspopup="listbox"
-          aria-controls={listboxId}
+          aria-autocomplete={showSuggestions ? "list" : undefined}
+          aria-expanded={showSuggestions ? (open && value.trim().length >= 2) : undefined}
+          aria-haspopup={showSuggestions ? "listbox" : undefined}
+          aria-controls={showSuggestions ? listboxId : undefined}
           className={`w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-9 text-sm outline-none transition focus:border-stone-700 focus:ring-2 focus:ring-stone-100 ${value ? "pr-10" : "pr-3"} ${inputClassName}`}
         />
         {value && (
@@ -146,7 +149,7 @@ export default function ProductSearchInput({
           </button>
         )}
       </form>
-      {open && value.trim().length >= 2 && (
+      {showSuggestions && open && value.trim().length >= 2 && (
         <div
           id={listboxId}
           role="listbox"

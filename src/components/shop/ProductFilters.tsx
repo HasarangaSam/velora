@@ -311,6 +311,7 @@ function ProductFiltersForm({ categories }: ProductFiltersProps) {
         <ProductSearchInput
           id="search"
           label="Search"
+          showSuggestions={false}
           value={search}
           onChange={(value) =>
             setDrafts((current) => ({ ...current, search: value }))
