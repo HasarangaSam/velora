@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Heart } from "lucide-react";
@@ -26,19 +26,15 @@ export default function WishlistButton({
   const setSaved = useWishlistStore((state) => state.setSaved);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
-  const [initialHydrated, setInitialHydrated] = useState(false);
+  const seededRef = useRef(false);
 
   useEffect(() => {
-    if (initialHydrated) {
-      return;
-    }
-
+    if (seededRef.current) return;
+    seededRef.current = true;
     if (initialSaved) {
       setSaved(productId, true);
     }
-
-    setInitialHydrated(true);
-  }, [initialHydrated, initialSaved, productId, setSaved]);
+  }, [initialSaved, productId, setSaved]);
 
   const saved = savedProductIds.includes(productId);
 

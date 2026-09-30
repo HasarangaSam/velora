@@ -80,7 +80,7 @@ export default function ProductSearchInput({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [value]);
+  }, [value, showSuggestions]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
