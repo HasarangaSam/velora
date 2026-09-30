@@ -4,6 +4,7 @@
  * to keep consumer import paths clean and stable.
  *
  * @example
- * import { useCartStore } from "@/store";
+ * import { useCartStore, useWishlistStore } from "@/store";
  */
 export { useCartStore } from "./cartStore";
+export { useWishlistStore } from "./wishlistStore";

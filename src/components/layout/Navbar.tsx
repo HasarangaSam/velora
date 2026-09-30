@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store";
 import LogoutButton from "@/components/auth/LogoutButton";
@@ -18,8 +18,63 @@ import {
 } from "lucide-react";
 import ProductSearchInput from "@/components/shop/ProductSearchInput";
 import NotificationBell from "@/components/layout/NotificationBell";
+import { getCategoryDisplayName } from "@/lib/category-display";
 
 const subscribeToNothing = () => () => {};
+
+type NavSubCategory = {
+  id?: string;
+  name: string;
+  slug: string;
+};
+
+type NavCategoryRecord = {
+  id?: string;
+  name: string;
+  slug: string;
+  children?: NavSubCategory[];
+};
+
+type CategoryDropdownConfig = {
+  slug: string;
+  name: string;
+  mobileLabel: string;
+  defaultSubcategories: { name: string; slug: string }[];
+};
+
+const CATEGORY_CONFIGS: CategoryDropdownConfig[] = [
+  {
+    slug: "men",
+    name: "Men",
+    mobileLabel: "Men's Fashion",
+    defaultSubcategories: [
+      { name: "T-Shirts", slug: "men-t-shirts" },
+      { name: "Shirts", slug: "men-shirts" },
+      { name: "Chinos & Trousers", slug: "men-chinos" },
+    ],
+  },
+  {
+    slug: "women",
+    name: "Women",
+    mobileLabel: "Women's Fashion",
+    defaultSubcategories: [
+      { name: "Frocks", slug: "women-dresses" },
+      { name: "Tops & Tees", slug: "women-tops" },
+      { name: "Trousers", slug: "women-trousers" },
+      { name: "Skirts", slug: "women-skirts" },
+      { name: "Sarees", slug: "women-sarees" },
+    ],
+  },
+  {
+    slug: "kids",
+    name: "Kids",
+    mobileLabel: "Kids' Collection",
+    defaultSubcategories: [
+      { name: "T-Shirts", slug: "kids-t-shirts" },
+      { name: "Shorts", slug: "kids-shorts" },
+    ],
+  },
+];
 
 export default function Navbar() {
   const router = useRouter();
@@ -39,6 +94,11 @@ export default function Navbar() {
   const activeUser = mounted ? session?.user : undefined;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mobileExpandedCategories, setMobileExpandedCategories] = useState<Record<string, boolean>>({});
+  const [categoriesData, setCategoriesData] = useState<NavCategoryRecord[]>([]);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const navigationKey = `${pathname}?${searchParams.toString()}`;
   const [searchInputState, setSearchInputState] = useState({
     pathname,
@@ -53,10 +113,56 @@ export default function Navbar() {
     const closeMenus = window.setTimeout(() => {
       setMobileMenuOpen(false);
       setUserDropdownOpen(false);
+      setOpenDropdown(null);
     }, 0);
 
     return () => window.clearTimeout(closeMenus);
   }, [navigationKey]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/categories")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: NavCategoryRecord[]) => {
+        if (!cancelled && Array.isArray(data) && data.length > 0) {
+          setCategoriesData(data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function handleMouseEnter(slug: string) {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setOpenDropdown(slug);
+  }
+
+  function handleMouseLeave() {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setOpenDropdown(null);
+    }, 180);
+  }
+
+  function toggleMobileCategory(slug: string) {
+    setMobileExpandedCategories((prev) => ({
+      ...prev,
+      [slug]: !prev[slug],
+    }));
+  }
 
   let searchQuery = searchInputState.value;
   if (searchInputState.pathname !== pathname || searchInputState.urlSearch !== urlSearch) {
@@ -116,8 +222,10 @@ export default function Navbar() {
     : 0;
 
   function isCollectionActive(slug: string) {
-    return pathname === "/shop" &&
-      (selectedCategory === slug || selectedCategory.startsWith(`${slug}-`));
+    return (
+      pathname === "/shop" &&
+      (selectedCategory === slug || selectedCategory.startsWith(`${slug}-`))
+    );
   }
 
   const saleActive = pathname === "/shop" && searchParams.get("saleOnly") === "true";
@@ -131,7 +239,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-slate-700 hover:text-blue-600 focus:outline-none"
+            className="md:hidden p-2 text-slate-700 hover:text-blue-600 focus:outline-none rounded-lg hover:bg-slate-50 transition"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -146,42 +254,111 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium">
             <Link
               href="/shop"
               aria-current={allProductsActive ? "page" : undefined}
-              className={`relative py-2 transition ${allProductsActive ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
+              className={`relative py-2 transition ${
+                allProductsActive
+                  ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950"
+                  : "text-stone-600 hover:text-stone-950"
+              }`}
             >
               All Products
             </Link>
             <Link
               href="/shop?saleOnly=true"
               aria-current={saleActive ? "page" : undefined}
-              className={`relative py-2 font-semibold transition ${saleActive ? "text-rose-700 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-rose-600" : "text-rose-600 hover:text-rose-800"}`}
+              className={`relative py-2 font-semibold transition ${
+                saleActive
+                  ? "text-rose-700 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-rose-600"
+                  : "text-rose-600 hover:text-rose-800"
+              }`}
             >
               Sale
             </Link>
-            <Link
-              href="/shop?category=men"
-              aria-current={isCollectionActive("men") ? "page" : undefined}
-              className={`relative py-2 transition ${isCollectionActive("men") ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
-            >
-              Men
-            </Link>
-            <Link
-              href="/shop?category=women"
-              aria-current={isCollectionActive("women") ? "page" : undefined}
-              className={`relative py-2 transition ${isCollectionActive("women") ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
-            >
-              Women
-            </Link>
-            <Link
-              href="/shop?category=kids"
-              aria-current={isCollectionActive("kids") ? "page" : undefined}
-              className={`relative py-2 transition ${isCollectionActive("kids") ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950" : "text-stone-600 hover:text-stone-950"}`}
-            >
-              Kids
-            </Link>
+
+            {/* Men, Women, Kids dropdowns on hover */}
+            {CATEGORY_CONFIGS.map((config) => {
+              const isCategoryActive = isCollectionActive(config.slug);
+              const isDropdownOpen = openDropdown === config.slug;
+              const dbCategory = categoriesData.find((c) => c.slug === config.slug);
+              const subcategories =
+                dbCategory?.children && dbCategory.children.length > 0
+                  ? dbCategory.children.map((child) => ({
+                      name: getCategoryDisplayName(child),
+                      slug: child.slug,
+                    }))
+                  : config.defaultSubcategories;
+
+              return (
+                <div
+                  key={config.slug}
+                  className="relative"
+                  onMouseEnter={() => handleMouseEnter(config.slug)}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <Link
+                    href={`/shop?category=${config.slug}`}
+                    aria-current={isCategoryActive ? "page" : undefined}
+                    aria-expanded={isDropdownOpen}
+                    aria-haspopup="true"
+                    onClick={() => setOpenDropdown(null)}
+                    className={`relative inline-flex items-center gap-1.5 py-2 transition group ${
+                      isCategoryActive
+                        ? "text-stone-950 after:absolute after:inset-x-0 after:-bottom-[1px] after:h-0.5 after:bg-stone-950"
+                        : "text-stone-600 hover:text-stone-950"
+                    }`}
+                  >
+                    <span>{config.name}</span>
+                    <ChevronDown
+                      size={13}
+                      className={`text-stone-400 transition-transform duration-200 ${
+                        isDropdownOpen ? "rotate-180 text-stone-800" : "group-hover:text-stone-700"
+                      }`}
+                    />
+                  </Link>
+
+                  {/* Clean Category Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <div
+                      onMouseEnter={() => handleMouseEnter(config.slug)}
+                      onMouseLeave={handleMouseLeave}
+                      className="absolute left-0 top-full pt-2 z-50 w-52 animate-in fade-in slide-in-from-top-1 duration-150"
+                    >
+                      <div className="rounded-xl border border-slate-200 bg-white shadow-lg p-1.5">
+                        <Link
+                          href={`/shop?category=${config.slug}`}
+                          onClick={() => setOpenDropdown(null)}
+                          className="block rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100 transition"
+                        >
+                          All {config.name}
+                        </Link>
+                        <div className="my-1 border-t border-slate-100" />
+                        {subcategories.map((sub) => {
+                          const isSubActive =
+                            pathname === "/shop" && selectedCategory === sub.slug;
+                          return (
+                            <Link
+                              key={sub.slug}
+                              href={`/shop?category=${sub.slug}`}
+                              onClick={() => setOpenDropdown(null)}
+                              className={`block rounded-lg px-3 py-2 text-xs transition ${
+                                isSubActive
+                                  ? "bg-blue-50 text-blue-600 font-semibold"
+                                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                              }`}
+                            >
+                              {sub.name}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
 
           {/* Search Bar */}
@@ -312,7 +489,7 @@ export default function Navbar() {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-4">
+        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-4 max-h-[85vh] overflow-y-auto">
           <ProductSearchInput
             value={searchQuery}
             onChange={(value) => setSearchInputState((current) => ({ ...current, value }))}
@@ -325,12 +502,14 @@ export default function Navbar() {
             inputClassName="text-xs"
           />
 
-          <nav className="flex flex-col space-y-1 text-sm font-medium">
+          <nav className="flex flex-col space-y-1.5 text-sm font-medium">
             <Link
               href="/shop"
               onClick={() => setMobileMenuOpen(false)}
               aria-current={allProductsActive ? "page" : undefined}
-              className={`rounded-lg px-3 py-2 transition ${allProductsActive ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
+              className={`rounded-xl px-3.5 py-2.5 transition ${
+                allProductsActive ? "bg-stone-100 text-stone-950 font-semibold" : "text-stone-700 hover:bg-stone-50"
+              }`}
             >
               All Products
             </Link>
@@ -338,34 +517,101 @@ export default function Navbar() {
               href="/shop?saleOnly=true"
               onClick={() => setMobileMenuOpen(false)}
               aria-current={saleActive ? "page" : undefined}
-              className={`rounded-lg px-3 py-2 font-semibold transition ${saleActive ? "bg-rose-50 text-rose-700" : "text-rose-600 hover:bg-rose-50"}`}
+              className={`rounded-xl px-3.5 py-2.5 font-semibold transition ${
+                saleActive ? "bg-rose-50 text-rose-700" : "text-rose-600 hover:bg-rose-50"
+              }`}
             >
               Sale
             </Link>
-            <Link
-              href="/shop?category=men"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-current={isCollectionActive("men") ? "page" : undefined}
-              className={`rounded-lg px-3 py-2 transition ${isCollectionActive("men") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
-            >
-              Men&apos;s Fashion
-            </Link>
-            <Link
-              href="/shop?category=women"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-current={isCollectionActive("women") ? "page" : undefined}
-              className={`rounded-lg px-3 py-2 transition ${isCollectionActive("women") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
-            >
-              Women&apos;s Fashion
-            </Link>
-            <Link
-              href="/shop?category=kids"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-current={isCollectionActive("kids") ? "page" : undefined}
-              className={`rounded-lg px-3 py-2 transition ${isCollectionActive("kids") ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"}`}
-            >
-              Kids&apos; Collection
-            </Link>
+
+            {/* Mobile Category Accordions for Men, Women, Kids */}
+            {CATEGORY_CONFIGS.map((config) => {
+              const isExpanded = mobileExpandedCategories[config.slug] ?? false;
+              const isParentActive = isCollectionActive(config.slug);
+              const dbCategory = categoriesData.find((c) => c.slug === config.slug);
+              const subcategories =
+                dbCategory?.children && dbCategory.children.length > 0
+                  ? dbCategory.children.map((child) => ({
+                      name: getCategoryDisplayName(child),
+                      slug: child.slug,
+                    }))
+                  : config.defaultSubcategories;
+
+              return (
+                <div
+                  key={config.slug}
+                  className={`rounded-xl overflow-hidden border transition ${
+                    isParentActive
+                      ? "border-blue-200 bg-blue-50/20"
+                      : "border-slate-100 bg-slate-50/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <Link
+                      href={`/shop?category=${config.slug}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      aria-current={isParentActive ? "page" : undefined}
+                      className={`flex-1 px-3.5 py-2.5 text-sm font-medium transition ${
+                        isParentActive ? "text-blue-700 font-bold" : "text-stone-800 hover:text-stone-950"
+                      }`}
+                    >
+                      {config.mobileLabel}
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleMobileCategory(config.slug)}
+                      aria-expanded={isExpanded}
+                      aria-label={`Toggle ${config.name} subcategories`}
+                      className="p-2.5 mr-1 text-slate-500 hover:text-slate-900 rounded-lg focus:outline-none"
+                    >
+                      <ChevronDown
+                        size={18}
+                        className={`transition-transform duration-200 ${
+                          isExpanded ? "rotate-180 text-blue-600" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Collapsible Subcategories */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-200/70 bg-white px-3.5 py-2 space-y-1 animate-in fade-in duration-150">
+                      <Link
+                        href={`/shop?category=${config.slug}`}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between py-2 px-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50/60 rounded-lg transition"
+                      >
+                        <span>View All {config.name}&apos;s Clothing</span>
+                        <span>&rarr;</span>
+                      </Link>
+
+                      {subcategories.map((sub) => {
+                        const isSubActive =
+                          pathname === "/shop" && selectedCategory === sub.slug;
+                        return (
+                          <Link
+                            key={sub.slug}
+                            href={`/shop?category=${sub.slug}`}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center justify-between py-2 px-2.5 text-xs rounded-lg transition ${
+                              isSubActive
+                                ? "bg-blue-50 text-blue-700 font-semibold"
+                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                            }`}
+                          >
+                            <span>{sub.name}</span>
+                            {isSubActive && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
 
           {!activeUser && (

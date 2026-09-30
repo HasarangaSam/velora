@@ -1,6 +1,6 @@
 "use client";
 
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import ProductSearchInput from "@/components/shop/ProductSearchInput";
@@ -42,6 +42,13 @@ function getFilterDrafts(query: string): FilterDrafts {
 
 const FILTER_DEBOUNCE_MS = 500;
 
+const SORT_LABELS: Record<string, string> = {
+  newest: "Newest",
+  name: "Name",
+  "price-low": "Price: Low to High",
+  "price-high": "Price: High to Low",
+};
+
 export default function ProductFilters({ categories }: ProductFiltersProps) {
   return <ProductFiltersForm categories={categories} />;
 }
@@ -55,6 +62,7 @@ function ProductFiltersForm({ categories }: ProductFiltersProps) {
   const [drafts, setDrafts] = useState(() =>
     getFilterDrafts(searchParamsString),
   );
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   // Sync external URL changes without remounting the inputs. Keying the form to
   // the query string loses focus whenever a debounced price update navigates.
@@ -127,14 +135,179 @@ function ProductFiltersForm({ categories }: ProductFiltersProps) {
   );
   const visibleCategories = activeCollection ? [activeCollection] : categories;
 
+  // Active filter calculation for mobile chips & clear button
+  const hasCategory = Boolean(category);
+  const hasSearch = Boolean(search.trim());
+  const hasPrice = Boolean(minPrice.trim() || maxPrice.trim());
+  const hasCustomSort = Boolean(sort && sort !== "newest");
+  const hasActiveFilters = Boolean(
+    category || minPrice || maxPrice || searchParams.get("search"),
+  );
+
+  let activeFilterCount = 0;
+  if (hasCategory) activeFilterCount++;
+  if (hasSearch) activeFilterCount++;
+  if (hasPrice) activeFilterCount++;
+  if (hasCustomSort) activeFilterCount++;
+
+  function getActiveCategoryLabel(slug: string): string {
+    for (const item of categories) {
+      if (item.slug === slug) return getCategoryDisplayName(item);
+      if (item.children) {
+        for (const child of item.children) {
+          if (child.slug === slug) return getCategoryDisplayName(child);
+        }
+      }
+    }
+    return slug;
+  }
+
+  function handleClearAll() {
+    setDrafts((current) => ({
+      ...current,
+      search: "",
+      minPrice: "",
+      maxPrice: "",
+    }));
+    updateFilters({
+      category: "",
+      minPrice: "",
+      maxPrice: "",
+      search: "",
+    });
+  }
+
+  const priceBadgeLabel =
+    minPrice && maxPrice
+      ? `LKR ${Number(minPrice).toLocaleString("en-LK")} - ${Number(maxPrice).toLocaleString("en-LK")}`
+      : minPrice
+        ? `From LKR ${Number(minPrice).toLocaleString("en-LK")}`
+        : maxPrice
+          ? `Up to LKR ${Number(maxPrice).toLocaleString("en-LK")}`
+          : "";
+
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
-      <div className="flex items-center gap-2 text-sm font-medium text-stone-900">
+      {/* Mobile-only Header Bar: Collapsible toggle with filter count */}
+      <div className="flex sm:hidden items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setMobileExpanded(!mobileExpanded)}
+          className="flex items-center gap-2 text-sm font-semibold text-stone-900 focus:outline-none"
+          aria-expanded={mobileExpanded}
+        >
+          <SlidersHorizontal className="h-4 w-4 text-blue-600" />
+          <span>Filters &amp; Sort</span>
+          {activeFilterCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[11px] font-bold text-white shadow-xs">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        <div className="flex items-center gap-2">
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 py-1 px-2 rounded-lg hover:bg-rose-50 transition"
+            >
+              Reset
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobileExpanded(!mobileExpanded)}
+            className="flex items-center gap-1 text-xs font-medium text-stone-600 py-1 px-2.5 rounded-lg border border-stone-200 hover:bg-stone-50 transition"
+            aria-expanded={mobileExpanded}
+          >
+            <span>{mobileExpanded ? "Hide" : "Expand"}</span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                mobileExpanded ? "rotate-180 text-blue-600" : "text-stone-400"
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Active Filter Chips (shown when collapsed on mobile) */}
+      {!mobileExpanded && (hasCategory || hasSearch || hasPrice || hasCustomSort) && (
+        <div className="sm:hidden mt-3 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-stone-500 font-medium mr-1">Active:</span>
+
+          {hasCategory && (
+            <button
+              type="button"
+              onClick={() => updateFilters({ category: "" })}
+              className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100 transition"
+              title="Remove category filter"
+            >
+              <span>{getActiveCategoryLabel(category)}</span>
+              <X className="h-3 w-3" />
+            </button>
+          )}
+
+          {hasSearch && (
+            <button
+              type="button"
+              onClick={() => {
+                setDrafts((current) => ({ ...current, search: "" }));
+                updateFilters({ search: "" });
+              }}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200 transition"
+              title="Clear search"
+            >
+              <span>&ldquo;{search.trim()}&rdquo;</span>
+              <X className="h-3 w-3" />
+            </button>
+          )}
+
+          {hasPrice && (
+            <button
+              type="button"
+              onClick={() => {
+                setDrafts((current) => ({
+                  ...current,
+                  minPrice: "",
+                  maxPrice: "",
+                }));
+                updateFilters({ minPrice: "", maxPrice: "" });
+              }}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200 transition"
+              title="Remove price range"
+            >
+              <span>{priceBadgeLabel}</span>
+              <X className="h-3 w-3" />
+            </button>
+          )}
+
+          {hasCustomSort && (
+            <button
+              type="button"
+              onClick={() => updateFilters({ sort: "newest" })}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200 transition"
+              title="Reset sort order"
+            >
+              <span>Sort: {SORT_LABELS[sort] ?? sort}</span>
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Desktop Header: Exact original appearance */}
+      <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-stone-900">
         <SlidersHorizontal className="h-4 w-4" />
         Refine your selection
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+      {/* Inputs Grid: Hidden on mobile when collapsed, exact original grid layout on sm & lg */}
+      <div
+        className={`${
+          mobileExpanded ? "grid" : "hidden"
+        } sm:grid mt-4 gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]`}
+      >
         <ProductSearchInput
           id="search"
           label="Search"
@@ -264,24 +437,26 @@ function ProductFiltersForm({ categories }: ProductFiltersProps) {
           </select>
         </div>
       </div>
-      {(category || minPrice || maxPrice || searchParams.get("search")) && (
+
+      {/* Mobile action button when expanded */}
+      {mobileExpanded && (
+        <div className="sm:hidden mt-4 pt-3 border-t border-stone-100 flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setMobileExpanded(false)}
+            className="w-full rounded-xl bg-stone-900 py-2.5 text-center text-xs font-semibold text-white hover:bg-stone-800 transition shadow-xs"
+          >
+            Done &amp; View Results
+          </button>
+        </div>
+      )}
+
+      {/* Desktop Clear filters button: Exact original position & style */}
+      {hasActiveFilters && (
         <button
           type="button"
-          onClick={() => {
-            setDrafts((current) => ({
-              ...current,
-              search: "",
-              minPrice: "",
-              maxPrice: "",
-            }));
-            updateFilters({
-              category: "",
-              minPrice: "",
-              maxPrice: "",
-              search: "",
-            });
-          }}
-          className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-stone-600 hover:text-stone-950"
+          onClick={handleClearAll}
+          className="hidden sm:inline-flex mt-4 items-center gap-1.5 text-xs font-medium text-stone-600 hover:text-stone-950"
         >
           <X className="h-3.5 w-3.5" /> Clear filters
         </button>

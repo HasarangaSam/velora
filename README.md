@@ -15,16 +15,16 @@ This is a portfolio project built to demonstrate application architecture and co
 
 ## Architecture
 
-| Layer | Implementation |
-| --- | --- |
-| Application | Next.js 16 App Router, React 19, TypeScript 5; server components for data-driven pages, client components for interactive UI, route handlers and server actions for mutations |
-| Persistence | PostgreSQL with Prisma ORM 7 and the `@prisma/adapter-pg` driver adapter |
-| Authentication | Auth.js / NextAuth v5 with JWT sessions, Prisma adapter, credentials and optional Google provider |
-| Validation | Zod schemas shared at request boundaries; server-side authorization for user and admin operations |
-| Client state | Zustand cart state persisted in the browser and synchronized to a signed-in customer's server cart |
-| Integrations | PayHere, Cloudinary, Nodemailer over SMTP, and Redis for cache and security rate limits |
-| UI | Tailwind CSS 4 and Lucide React |
-| Quality | ESLint, TypeScript checks, Vitest, GitHub Actions, Docker |
+| Layer          | Implementation                                                                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application    | Next.js 16 App Router, React 19, TypeScript 5; server components for data-driven pages, client components for interactive UI, route handlers and server actions for mutations |
+| Persistence    | PostgreSQL with Prisma ORM 7 and the `@prisma/adapter-pg` driver adapter                                                                                                      |
+| Authentication | Auth.js / NextAuth v5 with JWT sessions, Prisma adapter, credentials and optional Google provider                                                                             |
+| Validation     | Zod schemas shared at request boundaries; server-side authorization for user and admin operations                                                                             |
+| Client state   | Zustand cart and wishlist state persisted in the browser, with cart synchronization for signed-in customers and optimistic wishlist toggles before server reconciliation      |
+| Integrations   | PayHere, Cloudinary, Nodemailer over SMTP, and Redis for cache and security rate limits                                                                                       |
+| UI             | Tailwind CSS 4 and Lucide React                                                                                                                                               |
+| Quality        | ESLint, TypeScript checks, Vitest, GitHub Actions, Docker                                                                                                                     |
 
 ### Request and data flow
 
@@ -95,19 +95,19 @@ The server recomputes checkout totals from database records rather than acceptin
 
 ### Main pages
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Storefront home and featured collections |
-| `/shop` | Searchable, filterable, sortable, paginated catalog |
-| `/products/[slug]` | Product detail, variants, stock, reviews, and purchase actions |
-| `/cart` | Guest or signed-in cart |
-| `/checkout` | Address selection, coupon, and order review |
-| `/checkout/payment` | PayHere payment handoff |
+| Route                                      | Purpose                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------- |
+| `/`                                        | Storefront home and featured collections                          |
+| `/shop`                                    | Searchable, filterable, sortable, paginated catalog               |
+| `/products/[slug]`                         | Product detail, variants, stock, reviews, and purchase actions    |
+| `/cart`                                    | Guest or signed-in cart                                           |
+| `/checkout`                                | Address selection, coupon, and order review                       |
+| `/checkout/payment`                        | PayHere payment handoff                                           |
 | `/checkout/success`, `/checkout/cancelled` | Payment return screens; server callback remains payment authority |
-| `/login`, `/register`, `/verify-email` | Authentication and email verification |
-| `/forgot-password`, `/reset-password` | Password recovery by reset link |
-| `/account/*` | Profile, addresses, orders, wishlist, and reviews |
-| `/admin/*` | Admin dashboard and management workflows |
+| `/login`, `/register`, `/verify-email`     | Authentication and email verification                             |
+| `/forgot-password`, `/reset-password`      | Password recovery by reset link                                   |
+| `/account/*`                               | Profile, addresses, orders, wishlist, and reviews                 |
+| `/admin/*`                                 | Admin dashboard and management workflows                          |
 
 ### API surface
 
@@ -127,14 +127,14 @@ Route handlers are under `src/app/api`:
 
 The schema is in `prisma/schema.prisma`; migrations are in `prisma/migrations`.
 
-| Domain | Models | Design notes |
-| --- | --- | --- |
-| Identity | `User`, `Account`, `VerificationCode`, `PasswordResetToken` | Unique email, role, email verification, OAuth account linkage, session version |
-| Catalog | `Category`, `Product`, `ProductImage`, `ProductVariant` | Hierarchical categories, product-level regular/sale pricing, ordered images, per-size/colour stock |
-| Shopping | `Cart`, `CartItem`, `WishlistItem`, `Address` | One cart per user, unique variant per cart, one wishlist entry per product/customer |
-| Checkout | `Order`, `OrderItem`, `Payment` | Persisted monetary totals and item/shipping snapshots; one payment record per order |
-| Promotions | `Coupon`, `CouponUsage` | Fixed or percentage discounts, date windows, global/per-user limits, one usage record per order |
-| Engagement | `ProductReview`, `Notification` | Review moderation and recipient-scoped notifications |
+| Domain     | Models                                                      | Design notes                                                                                       |
+| ---------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Identity   | `User`, `Account`, `VerificationCode`, `PasswordResetToken` | Unique email, role, email verification, OAuth account linkage, session version                     |
+| Catalog    | `Category`, `Product`, `ProductImage`, `ProductVariant`     | Hierarchical categories, product-level regular/sale pricing, ordered images, per-size/colour stock |
+| Shopping   | `Cart`, `CartItem`, `WishlistItem`, `Address`               | One cart per user, unique variant per cart, one wishlist entry per product/customer                |
+| Checkout   | `Order`, `OrderItem`, `Payment`                             | Persisted monetary totals and item/shipping snapshots; one payment record per order                |
+| Promotions | `Coupon`, `CouponUsage`                                     | Fixed or percentage discounts, date windows, global/per-user limits, one usage record per order    |
+| Engagement | `ProductReview`, `Notification`                             | Review moderation and recipient-scoped notifications                                               |
 
 Important database constraints include unique user email, product slug, product option tuple, cart/variant tuple, user/product wishlist and review tuples, order number, checkout request key, payment order, and coupon order usage. Foreign-key delete behavior is chosen to preserve order history while cleaning up dependent shopping data.
 
@@ -197,25 +197,25 @@ Use versioned migrations to evolve a shared or deployed database. Do not use `pr
 
 Demo credentials:
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `admin@gmail.com` | `admin123` |
-| Admin | `admin@velora.lk` | `admin123` |
+| Role     | Email                | Password      |
+| -------- | -------------------- | ------------- |
+| Admin    | `admin@gmail.com`    | `admin123`    |
+| Admin    | `admin@velora.lk`    | `admin123`    |
 | Customer | `customer@velora.lk` | `customer123` |
 
 All three seeded accounts are email-verified. These credentials are for local demonstration only. Never use them in a deployed environment.
 
 ## Development commands
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start Next.js development server |
-| `npm run build` | Generate Prisma Client and build the production app |
-| `npm run start` | Serve the production build |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Generate Prisma Client and run `tsc --noEmit` |
-| `npm test` | Run Vitest tests once |
-| `npm run seed` | Reset and seed the guarded local demo database |
+| Command             | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `npm run dev`       | Start Next.js development server                    |
+| `npm run build`     | Generate Prisma Client and build the production app |
+| `npm run start`     | Serve the production build                          |
+| `npm run lint`      | Run ESLint                                          |
+| `npm run typecheck` | Generate Prisma Client and run `tsc --noEmit`       |
+| `npm test`          | Run Vitest tests once                               |
+| `npm run seed`      | Reset and seed the guarded local demo database      |
 
 The current Vitest suite includes focused cart input-schema tests. CI also performs static type checking, linting, tests, a Next.js production build, and a Docker image build.
 
@@ -251,7 +251,7 @@ src/
   app/                 App Router pages, layouts, server actions, and API routes
   components/          Storefront, checkout, account, admin, auth, and layout UI
   lib/                 Domain logic, validation, auth guards, integrations, database
-  store/               Zustand cart state and persistence
+  store/               Zustand cart and wishlist state, persistence, and client-side sync helpers
   types/               Shared TypeScript declarations
 prisma/
   schema.prisma        PostgreSQL domain model

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Heart } from "lucide-react";
 import { setWishlistItem } from "@/app/account/wishlist/actions";
+import { useWishlistStore } from "@/store";
 
 // Wishlist updates are optimistic on the client and then reconciled with the server action result,
 // which keeps the interaction fast while still being resilient to failures.
@@ -21,9 +22,25 @@ export default function WishlistButton({
 }) {
   const router = useRouter();
   const { status } = useSession();
-  const [saved, setSaved] = useState(initialSaved);
+  const savedProductIds = useWishlistStore((state) => state.savedProductIds);
+  const setSaved = useWishlistStore((state) => state.setSaved);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+  const [initialHydrated, setInitialHydrated] = useState(false);
+
+  useEffect(() => {
+    if (initialHydrated) {
+      return;
+    }
+
+    if (initialSaved) {
+      setSaved(productId, true);
+    }
+
+    setInitialHydrated(true);
+  }, [initialHydrated, initialSaved, productId, setSaved]);
+
+  const saved = savedProductIds.includes(productId);
 
   function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -37,12 +54,12 @@ export default function WishlistButton({
     }
 
     const nextSaved = !saved;
-    setSaved(nextSaved);
+    setSaved(productId, nextSaved);
     setMessage("");
     startTransition(async () => {
       const result = await setWishlistItem(productId, nextSaved);
       if (!result.success) {
-        setSaved(result.isSaved);
+        setSaved(productId, result.isSaved);
         setMessage(result.message);
         return;
       }
