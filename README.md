@@ -18,6 +18,7 @@ This is a portfolio project built to demonstrate application architecture and co
 | Layer          | Implementation                                                                                                                                                                |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Application    | Next.js 16 App Router, React 19, TypeScript 5; server components for data-driven pages, client components for interactive UI, route handlers and server actions for mutations |
+| Routing Proxy  | Next.js 16 `src/proxy.ts` for optimistic session/role pre-filtering across protected `/admin/*` and `/account/*` routes                                                       |
 | Persistence    | PostgreSQL with Prisma ORM 7 and the `@prisma/adapter-pg` driver adapter                                                                                                      |
 | Authentication | Auth.js / NextAuth v5 with JWT sessions, Prisma adapter, credentials and optional Google provider                                                                             |
 | Validation     | Zod schemas shared at request boundaries; server-side authorization for user and admin operations                                                                             |
@@ -30,9 +31,11 @@ This is a portfolio project built to demonstrate application architecture and co
 
 ```text
 Browser
+  ├── Next.js 16 Proxy (src/proxy.ts)
+  │       └── Optimistic session and role pre-filtering (/admin/*, /account/*)
   ├── App Router pages / server actions
   └── Route handlers (/api/*)
-          ├── Auth.js session + role checks
+          ├── Auth.js session + role checks (requireAdmin / requireUser)
           ├── Zod request validation
           ├── Domain helpers (pricing, checkout, reviews, notifications)
           ├── Prisma Client → PostgreSQL
@@ -79,7 +82,7 @@ The server recomputes checkout totals from database records rather than acceptin
 - Credential login failures are throttled at 20 per normalized email and 60 per trusted client IP per 15-minute window when a trusted IP is configured. Identifiers are HMAC-hashed before they are used as Redis keys; sign-in is denied in production if Redis is unavailable.
 - Registration verification codes are HMAC-digested at rest, expire after 15 minutes, allow at most five incorrect attempts, and are consumed once when used. Resend and password-reset requests have per-email throttles and trusted-IP throttles where available.
 - Password-reset links use 256-bit random tokens. Only an HMAC digest is stored, and token consumption and password/session-version updates happen in one transaction. Email delivery failures never log recovery secrets in production; the local development fallback can print them to the developer console.
-- User and administrator operations use server-side identity/role guards. Customers can manage their profile, saved addresses, orders, wishlist, and reviews.
+- User and administrator operations employ multi-layered authorization: Next.js 16 request proxy (`src/proxy.ts`) pre-filters unauthenticated visitors and non-admins at the edge before rendering, `AdminLayout` guards the administration route tree, every admin page runs `await requireAdmin()`, and all Server Actions and `/api/admin/*` route handlers verify administrator permissions at the data/action layer. Customers can manage their profile, saved addresses, orders, wishlist, and reviews.
 - A customer can review a product only after a paid, non-cancelled purchase. Reviews are unique per customer/product and require moderation before appearing in the public product review list.
 
 ### Operational behavior

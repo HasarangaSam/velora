@@ -20,6 +20,7 @@ import ReviewRatingBreakdown from "@/components/admin/charts/ReviewRatingBreakdo
 import OrdersAwaitingProcessingQueue, {
   ConfirmedOrderItem,
 } from "@/components/admin/OrdersAwaitingProcessingQueue";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 export const revalidate = 0; // Dynamic dashboard; the admin metrics should refresh on each request.
 
@@ -78,6 +79,8 @@ async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 export default async function AdminDashboardPage() {
+  await requireAdmin();
+
   // Use a fixed 30-day window for the revenue and order trend charts.
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);

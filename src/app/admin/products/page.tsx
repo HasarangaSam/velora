@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-user";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import Image from "next/image";
 import ProductRowActions from "@/components/admin/ProductRowActions";
 
@@ -12,17 +12,7 @@ type AdminProductsPageProps = {
 const PAGE_SIZE = 10;
 
 export default async function AdminProductsPage({ searchParams }: AdminProductsPageProps) {
-  let user;
-
-  try {
-    user = await requireUser();
-  } catch {
-    redirect("/login");
-  }
-
-  if (user.role !== "ADMIN") {
-    redirect("/account");
-  }
+  await requireAdmin();
 
   const params = await searchParams;
   const getValue = (value: string | string[] | undefined) =>

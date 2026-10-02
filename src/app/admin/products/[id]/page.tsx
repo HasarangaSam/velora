@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth/require-user";
+import { notFound } from "next/navigation";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { prisma } from "@/lib/db/prisma";
 import EditProductForm from "@/components/admin/EditProductForm";
 import ProductImageManager from "@/components/admin/ProductImageManager";
@@ -14,17 +14,7 @@ type ProductEditPageProps = {
 export default async function ProductEditPage({
   params,
 }: ProductEditPageProps) {
-  let user;
-
-  try {
-    user = await requireUser();
-  } catch {
-    redirect("/login");
-  }
-
-  if (user.role !== "ADMIN") {
-    redirect("/account");
-  }
+  await requireAdmin();
 
   const { id } = await params;
 
