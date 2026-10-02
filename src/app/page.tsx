@@ -1,8 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { connection } from "next/server";
+import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
-import { getCache, setCache } from "@/lib/redis";
 import ProductCard from "@/components/shop/ProductCard";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import { ArrowRight } from "lucide-react";
@@ -25,9 +25,9 @@ type HomepageProduct = {
 
 // Home page product lists are cached to reduce repeated Prisma reads on the storefront.
 async function getFeaturedProducts(): Promise<HomepageProduct[]> {
-  const cacheKey = "velora:featured_products:v3";
-  const cached = await getCache<HomepageProduct[]>(cacheKey);
-  if (cached) return cached;
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("products", "featured-products");
 
   const products = await prisma.product.findMany({
     where: {
@@ -49,7 +49,7 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
     },
   });
 
-  const formatted: HomepageProduct[] = products.map((p) => ({
+  return products.map((p) => ({
     id: p.id,
     name: p.name,
     slug: p.slug,
@@ -59,14 +59,15 @@ async function getFeaturedProducts(): Promise<HomepageProduct[]> {
     salePrice: p.salePrice?.toString() ?? null,
     totalStock: p.variants.reduce((sum, v) => sum + v.stock, 0),
   }));
-
-  await setCache(cacheKey, formatted, 120);
-  return formatted;
 }
 
 // Sale products are queried separately so the homepage can render a dedicated discount banner
 // without mixing it with the broader featured-product collection.
 async function getSaleProducts(): Promise<HomepageProduct[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("products", "sale-products");
+
   const products = await prisma.product.findMany({
     where: {
       isActive: true,
@@ -109,6 +110,10 @@ async function getCategoryProductImage(
   subCategorySlug: string,
   oldestFirst = false,
 ) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("products", "categories");
+
   const product = await prisma.product.findFirst({
     where: {
       isActive: true,

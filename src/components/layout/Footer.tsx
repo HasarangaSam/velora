@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, CreditCard, PackageCheck, Truck } from "lucide-react";
@@ -7,6 +8,11 @@ import { FaFacebookF, FaInstagram, FaTiktok, FaWhatsapp } from "react-icons/fa6"
 
 export default function Footer() {
   const pathname = usePathname();
+  const [year, setYear] = useState<number | null>(null);
+
+  useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
 
   if (pathname?.startsWith("/admin")) return null;
 
@@ -97,7 +103,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-6 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Velora. All rights reserved.</p>
+          <p>© {year} Velora. All rights reserved.</p>
           <p>Made for everyday living.</p>
         </div>
       </div>

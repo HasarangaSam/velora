@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth/require-user";
 import { prisma } from "@/lib/db/prisma";
@@ -108,7 +108,7 @@ export async function deleteProductReview(reviewId: string): Promise<ProductRevi
 
     const review = await prisma.productReview.findFirst({
       where: { id: parsedId.data, userId: user.id },
-      select: { product: { select: { slug: true } } },
+      select: { productId: true, product: { select: { slug: true } } },
     });
     if (!review) return { ...emptyState, message: "Review not found." };
 
@@ -126,6 +126,8 @@ export async function deleteProductReview(reviewId: string): Promise<ProductRevi
       console.error("Could not mark review notifications read on delete:", notifErr);
     }
 
+    revalidateTag("reviews", "max");
+    revalidateTag(`reviews-${review.productId}`, "max");
     revalidatePath(`/products/${review.product.slug}`);
     revalidatePath("/account/reviews");
     revalidatePath("/admin/reviews");

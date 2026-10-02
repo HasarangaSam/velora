@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { prisma } from "@/lib/db/prisma";
@@ -60,6 +60,8 @@ export async function moderateProductReview(reviewId: string, nextStatus: "APPRO
       console.error("Could not mark review notifications as read:", notifError);
     }
 
+    revalidateTag("reviews", "max");
+    revalidateTag(`reviews-${review.productId}`, "max");
     revalidatePath("/admin/reviews");
     revalidatePath("/account/reviews");
     revalidatePath(`/products/${review.product.slug}`);
@@ -82,6 +84,7 @@ export async function deleteProductReviewByAdmin(reviewId: string) {
       where: { id: input.data.reviewId },
       select: {
         id: true,
+        productId: true,
         product: { select: { slug: true } },
       },
     });
@@ -118,6 +121,8 @@ export async function deleteProductReviewByAdmin(reviewId: string) {
       console.error("Could not clean up notifications on review delete:", notifErr);
     }
 
+    revalidateTag("reviews", "max");
+    revalidateTag(`reviews-${review.productId}`, "max");
     revalidatePath("/admin/reviews");
     revalidatePath("/account/reviews");
     revalidatePath(`/products/${review.product.slug}`);

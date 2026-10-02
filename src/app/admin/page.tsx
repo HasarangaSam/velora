@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
-import { getCache, setCache } from "@/lib/redis";
+import { cacheLife, cacheTag } from "next/cache";
 import {
   DollarSign,
   ShoppingBag,
@@ -22,8 +22,6 @@ import OrdersAwaitingProcessingQueue, {
 } from "@/components/admin/OrdersAwaitingProcessingQueue";
 import { requireAdmin } from "@/lib/auth/require-admin";
 
-export const revalidate = 0; // Dynamic dashboard; the admin metrics should refresh on each request.
-
 type DashboardStats = {
   totalSales: number;
   totalOrders: number;
@@ -37,9 +35,9 @@ type DashboardStats = {
 // The dashboard aggregates several order and product metrics, so we cache the summary briefly
 // to avoid repeating expensive database work while still keeping the numbers fresh.
 async function getDashboardStats(): Promise<DashboardStats> {
-  const cacheKey = "velora:admin:stats";
-  const cached = await getCache<DashboardStats>(cacheKey);
-  if (cached) return cached;
+  "use cache";
+  cacheLife("seconds");
+  cacheTag("admin-stats");
 
   const [
     salesAgg,
@@ -64,7 +62,7 @@ async function getDashboardStats(): Promise<DashboardStats> {
     prisma.user.count({ where: { role: "USER" } }),
   ]);
 
-  const stats: DashboardStats = {
+  return {
     totalSales: Number(salesAgg._sum.total ?? 0),
     totalOrders,
     confirmedOrders,
@@ -73,9 +71,6 @@ async function getDashboardStats(): Promise<DashboardStats> {
     lowStockCount: lowStockVariants,
     totalCustomers,
   };
-
-  await setCache(cacheKey, stats, 30); // Cache for 30s
-  return stats;
 }
 
 export default async function AdminDashboardPage() {

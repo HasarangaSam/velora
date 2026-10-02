@@ -1,13 +1,12 @@
+import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { redis } from "@/lib/redis";
 import { catalogQuerySchema } from "@/lib/validation/catalog";
 import { getCurrentPrice } from "@/lib/product-pricing";
 
 // Storefront catalog responses are paginated and cached to keep the shop fast while still
 // reflecting the current product filters and stock state.
 const PRODUCTS_PER_PAGE = 12;
-const CACHE_TTL = 60;
 
 export type CatalogQuery = {
   search?: string;
@@ -47,39 +46,18 @@ export type CatalogResult = {
   };
 };
 
-function buildCacheKey(query: z.infer<typeof catalogQuerySchema>) {
-  return [
-    "velora:products:v4",
-    query.search,
-    query.category,
-    query.saleOnly ?? "",
-    query.minPrice ?? "",
-    query.maxPrice ?? "",
-    query.sort,
-    query.page,
-  ].join(":");
-}
-
 export async function getCatalogProducts(
   rawQuery: CatalogQuery,
 ): Promise<CatalogResult> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("products");
+
   // Validate the incoming search params before building the Prisma query, while still allowing
   // the page defaults to remain valid when a filter is omitted.
   const parsed = catalogQuerySchema.safeParse(rawQuery);
 
   const query = parsed.success ? parsed.data : catalogQuerySchema.parse({});
-
-  const cacheKey = buildCacheKey(query);
-
-  try {
-    const cached = await redis.get(cacheKey);
-
-    if (cached) {
-      return JSON.parse(cached) as CatalogResult;
-    }
-  } catch (error) {
-    console.error("Redis catalog read error:", error);
-  }
 
   // Base conditions keep only active products with current stock so the product grid never shows
   // unavailable inventory.
@@ -256,12 +234,6 @@ export async function getCatalogProducts(
       totalPages: Math.ceil(total / PRODUCTS_PER_PAGE),
     },
   };
-
-  try {
-    await redis.set(cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
-  } catch (error) {
-    console.error("Redis catalog write error:", error);
-  }
 
   return result;
 }

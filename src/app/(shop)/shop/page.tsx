@@ -2,6 +2,7 @@ import ProductCard from "@/components/shop/ProductCard";
 import ProductFilters from "@/components/shop/ProductFilters";
 import ProductPagination from "@/components/shop/ProductPagination";
 import { getCatalogProducts } from "@/lib/catalog-products";
+import { getCachedCategoryTree } from "@/lib/categories";
 import { prisma } from "@/lib/db/prisma";
 import { auth } from "@/auth";
 import { getCategoryDisplayName } from "@/lib/category-display";
@@ -38,23 +39,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       page: getValue(params.page),
     }),
 
-    prisma.category.findMany({
-      where: { parentId: null },
-      orderBy: {
-        name: "asc",
-      },
-      include: {
-        children: {
-          orderBy: {
-            name: "asc",
-          },
-          select: {
-            name: true,
-            slug: true,
-          },
-        },
-      },
-    }),
+    getCachedCategoryTree(),
     auth(),
   ]);
 

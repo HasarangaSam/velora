@@ -26,41 +26,10 @@ if (process.env.NODE_ENV !== "production") {
   globalForRedis.redis = redis;
 }
 
-export async function getCache<T>(key: string): Promise<T | null> {
-  try {
-    const raw = await redis.get(key);
-    if (!raw) return null;
-    return JSON.parse(raw) as T;
-  } catch (error) {
-    console.warn(`Redis getCache failed for key ${key}:`, error);
-    return null;
-  }
-}
-
-export async function setCache<T>(
-  key: string,
-  value: T,
-  ttlSeconds = 60,
-): Promise<void> {
-  try {
-    const serialized = JSON.stringify(value);
-    await redis.set(key, serialized, "EX", ttlSeconds);
-  } catch (error) {
-    console.warn(`Redis setCache failed for key ${key}:`, error);
-  }
-}
-
-export async function invalidateCachePattern(pattern: string): Promise<void> {
-  try {
-    const keys = await redis.keys(pattern);
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
-  } catch (error) {
-    console.warn(`Redis invalidateCachePattern failed for ${pattern}:`, error);
-  }
-}
-
+/**
+ * Check and record rate limit counter using atomic Redis commands.
+ * Used for checkout limits and security throttling.
+ */
 export async function checkRateLimit(
   identifier: string,
   limit: number = 10,

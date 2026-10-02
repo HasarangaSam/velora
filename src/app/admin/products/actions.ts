@@ -1,10 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { hasDuplicateProductVariantOptions, productSchema, productVariantSchema } from "@/lib/validation/product";
-import { redis } from "@/lib/redis";
 import cloudinary from "@/lib/cloudinary";
 import { z } from "zod";
 
@@ -158,15 +157,10 @@ export async function createProduct(
       select: { id: true },
     });
 
-    try {
-      const keys = await redis.keys("velora:products*");
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
-      await redis.del("velora:featured_products:v3");
-    } catch (redisErr) {
-      console.error("Redis cache invalidation error:", redisErr);
-    }
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
+    revalidateTag("sale-products", "max");
+    revalidateTag("admin-stats", "max");
 
     revalidatePath("/admin/products");
     revalidatePath("/products");
@@ -386,15 +380,11 @@ export async function updateProduct(
       }
     });
 
-    try {
-      const keys = await redis.keys("velora:products*");
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
-      await redis.del("velora:featured_products:v3");
-    } catch (redisError) {
-      console.error("Redis cache invalidation error:", redisError);
-    }
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
+    revalidateTag("sale-products", "max");
+    revalidateTag(`product-${existingProduct.slug}`, "max");
+    revalidateTag("admin-stats", "max");
 
     revalidatePath("/admin/products");
     revalidatePath(`/admin/products/${productId}/edit`);
@@ -468,13 +458,10 @@ export async function deleteProduct(productId: string): Promise<{
       console.error(`Some Cloudinary images for deleted product ${productId} could not be removed.`);
     }
 
-    try {
-      const keys = await redis.keys("velora:products*");
-      if (keys.length > 0) await redis.del(...keys);
-      await redis.del("velora:featured_products:v3");
-    } catch (error) {
-      console.error("Redis product cache invalidation error:", error);
-    }
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
+    revalidateTag("sale-products", "max");
+    revalidateTag("admin-stats", "max");
 
     revalidatePath("/admin/products");
     revalidatePath("/products");

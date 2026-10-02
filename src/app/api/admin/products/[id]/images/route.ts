@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import cloudinary from "@/lib/cloudinary";
-import { invalidateCachePattern } from "@/lib/redis";
+import { revalidateTag } from "next/cache";
 import { revalidatePath } from "next/cache";
 
-export const runtime = "nodejs";
 
 type RouteContext = {
   params: Promise<{
@@ -102,7 +101,8 @@ export async function POST(request: Request, context: RouteContext) {
       },
     });
 
-    await invalidateCachePattern("velora:featured_products:v3");
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
     revalidatePath("/");
 
     return NextResponse.json(

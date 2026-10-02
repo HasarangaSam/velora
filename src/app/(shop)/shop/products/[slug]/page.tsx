@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProductGallery from "@/components/shop/ProductGallery";
 import ProductPurchase from "@/components/shop/ProductPurchase";
-import { getProductBySlug } from "@/lib/product";
+import { getCollectionProducts, getProductBySlug } from "@/lib/product";
 import WishlistButton from "@/components/shop/WishlistButton";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -50,11 +50,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           select: { id: true },
         })
       : null,
-    prisma.product.findMany({
-      where: { categoryId: product.categoryId, isActive: true },
-      select: { id: true, name: true, slug: true },
-      orderBy: [{ createdAt: "desc" }, { slug: "asc" }],
-    }),
+    getCollectionProducts(product.categoryId),
   ]);
   const saved = Boolean(savedRecord);
   const productIndex = collectionProducts.findIndex((item) => item.id === product.id);

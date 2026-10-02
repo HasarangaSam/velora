@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
@@ -92,6 +92,7 @@ export async function createCategory(
       },
     });
 
+    revalidateTag("categories", "max");
     revalidatePath("/admin/categories");
 
     return {
@@ -144,6 +145,7 @@ export async function deleteCategory(
 
     await prisma.category.delete({ where: { id: categoryId } });
 
+    revalidateTag("categories", "max");
     revalidatePath("/admin/categories");
 
     return { success: true, message: "Category deleted." };
@@ -206,6 +208,7 @@ export async function updateCategory(
       },
     });
 
+    revalidateTag("categories", "max");
     revalidatePath("/admin/categories");
     revalidatePath("/products");
     revalidatePath("/");

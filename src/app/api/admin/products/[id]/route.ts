@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { productSchema, productVariantSchema } from "@/lib/validation/product";
-import { redis } from "@/lib/redis";
+import { revalidateTag } from "next/cache";
 
 const updateProductSchema = productSchema.extend({
   variants: z
@@ -223,16 +223,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       return updated;
     });
 
-    // Invalidate Redis catalog cache
-    try {
-      const keys = await redis.keys("velora:products*");
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
-      await redis.del("velora:featured_products:v3");
-    } catch (redisError) {
-      console.error("Redis cache invalidation error:", redisError);
-    }
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
+    revalidateTag("sale-products", "max");
+    revalidateTag(`product-${product.slug}`, "max");
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json({
       message: "Product updated successfully.",
@@ -287,16 +282,10 @@ export async function DELETE(_request: Request, context: RouteContext) {
       },
     });
 
-    // Invalidate Redis catalog cache
-    try {
-      const keys = await redis.keys("velora:products*");
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
-      await redis.del("velora:featured_products:v3");
-    } catch (redisError) {
-      console.error("Redis cache invalidation error:", redisError);
-    }
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
+    revalidateTag("sale-products", "max");
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json({
       message: "Product deactivated successfully.",

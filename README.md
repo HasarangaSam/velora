@@ -23,7 +23,8 @@ This is a portfolio project built to demonstrate application architecture and co
 | Authentication | Auth.js / NextAuth v5 with JWT sessions, Prisma adapter, credentials and optional Google provider                                                                             |
 | Validation     | Zod schemas shared at request boundaries; server-side authorization for user and admin operations                                                                             |
 | Client state   | Zustand cart and wishlist state persisted in the browser, with cart synchronization for signed-in customers and optimistic wishlist toggles before server reconciliation      |
-| Integrations   | PayHere, Cloudinary, Nodemailer over SMTP, and Redis for cache and security rate limits                                                                                       |
+| Caching        | Next.js 16 `use cache` directive with `cacheLife` and `cacheTag` for declarative server-component and function-level caching; `revalidateTag` for targeted invalidation      |
+| Integrations   | PayHere, Cloudinary, Nodemailer over SMTP, and Redis exclusively for security rate limits and auth throttling                                                                 |
 | UI             | Tailwind CSS 4 and Lucide React                                                                                                                                               |
 | Quality        | ESLint, TypeScript checks, Vitest, GitHub Actions, Docker                                                                                                                     |
 
@@ -85,11 +86,27 @@ The server recomputes checkout totals from database records rather than acceptin
 - User and administrator operations employ multi-layered authorization: Next.js 16 request proxy (`src/proxy.ts`) pre-filters unauthenticated visitors and non-admins at the edge before rendering, `AdminLayout` guards the administration route tree, every admin page runs `await requireAdmin()`, and all Server Actions and `/api/admin/*` route handlers verify administrator permissions at the data/action layer. Customers can manage their profile, saved addresses, orders, wishlist, and reviews.
 - A customer can review a product only after a paid, non-cancelled purchase. Reviews are unique per customer/product and require moderation before appearing in the public product review list.
 
+### Caching strategy
+
+Catalog data is cached with the Next.js 16 `use cache` directive (Cache Components). Each data-fetching function declares its own lifetime with `cacheLife` and is tagged with `cacheTag` for targeted invalidation:
+
+| Scope | Function / Component | Cache profile | Tags |
+| ----- | -------------------- | ------------- | ---- |
+| Home page | `getFeaturedProducts`, `getSaleProducts` | `hours` | `products`, `featured` / `sale` |
+| Catalog | `getCatalogProducts` | `hours` | `products`, `catalog` |
+| Product detail | `getProductBySlug` | `hours` | `products`, `product-<slug>` |
+| Collection | `getCollectionProducts` | `hours` | `products`, `collection-<id>` |
+| Categories | `getCachedCategoryTree` | `days` | `categories` |
+| Dashboard stats | `getDashboardStats` | `minutes` | `dashboard` |
+| Public reviews | `getPublicReviewData` | `hours` | `reviews`, `reviews-<productId>` |
+
+Cache entries are invalidated with `revalidateTag` after admin mutations (product create/edit/delete, category changes, review approval/rejection). User-specific review state (has purchased, has reviewed) is always fetched dynamically outside the cached scope.
+
 ### Operational behavior
 
-- The admin dashboard summarizes paid revenue, orders, active products, low-stock variants, registered customers, order status, category sales, and review ratings. Dashboard summary metrics use a short Redis cache when available.
+- The admin dashboard summarizes paid revenue, orders, active products, low-stock variants, registered customers, order status, category sales, and review ratings. Dashboard summary metrics use a short `minutes` cache via `use cache`.
 - Notifications are persisted per recipient. The browser refreshes them on navigation/focus and on a 45-second interval.
-- Redis is optional for catalog caching and local development. In production, credential sign-in and sensitive account flows fail closed if Redis is unavailable; configure Redis for those flows. Other best-effort cache/rate-limit paths may fail open.
+- Redis is used exclusively for security rate limiting (auth throttling, brute-force protection). It is not used for catalog caching. In production, credential sign-in and sensitive account flows fail closed if Redis is unavailable; configure Redis for those flows.
 - Login and account-operation throttles hash account identifiers before using them as Redis keys. Vercel's overwritten client-IP header is used on Vercel; self-hosted deployments should set `TRUSTED_CLIENT_IP_HEADER` to a header their reverse proxy overwrites, and should not pass caller-supplied forwarding headers through unchanged.
 - Price inputs on the storefront filter are debounced so the listing does not issue a new navigation for every key press.
 - Route-level loading, error, and not-found boundaries provide fallbacks for storefront, account, admin, and root routes.
@@ -269,7 +286,8 @@ Dockerfile             Multi-stage standalone production image
 
 - **Money uses PostgreSQL `Decimal` columns.** The current domain helpers convert values to JavaScript numbers for calculations and presentation; order and payment totals are persisted to two-decimal `Decimal` columns. Financial arithmetic at larger scale would benefit from integer minor units or decimal arithmetic end-to-end.
 - **Inventory is reserved at payment confirmation, not when the pending order is created.** Checkout validates stock, then the payment callback conditionally decrements stock inside a serializable transaction. This avoids leaving unpaid orders holding inventory, while creating a possible payment-success/stock-race case that is surfaced as a conflict for operations to resolve.
-- **Redis improves performance and enforces security throttles.** Authentication-sensitive throttles fail closed in production when Redis is unavailable; the app allows that fallback only in local development. Other best-effort cache/rate-limit paths may fail open.
+- **Caching is declarative via Next.js `use cache`.** Data-fetching functions opt in to caching at their own boundary using `cacheLife` and `cacheTag`. Mutations invalidate specific tags with `revalidateTag`, so only the affected data is flushed rather than clearing cache patterns broadly. Redis is scoped to security throttling only and no longer participates in the catalog cache path.
+- **Redis enforces security throttles and nothing else.** Authentication-sensitive throttles fail closed in production when Redis is unavailable; the app allows that fallback only in local development.
 - **Email and notification delivery are best-effort side effects.** The payment and order database transaction remains authoritative; an email provider outage does not roll back a confirmed payment.
 - **The project demonstrates the commerce lifecycle but is not a production claim.** Before a real launch, review operational monitoring, payment reconciliation/refunds, inventory reservation policy, backup/restore, proxy trust configuration, and deployment secret management for the chosen provider.
 

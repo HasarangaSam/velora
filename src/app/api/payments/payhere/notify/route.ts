@@ -7,7 +7,6 @@ import {
 } from "@/lib/payhere";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 
-export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
