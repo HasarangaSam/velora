@@ -101,16 +101,8 @@ export default function Navbar({ initialCategories }: NavbarProps = {}) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileExpandedCategories, setMobileExpandedCategories] = useState<Record<string, boolean>>({});
-  const [categoriesData, setCategoriesData] = useState<NavCategoryRecord[]>(
-    initialCategories ?? [],
-  );
+  const categoriesData: NavCategoryRecord[] = initialCategories ?? [];
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (initialCategories && initialCategories.length > 0) {
-      setCategoriesData(initialCategories);
-    }
-  }, [initialCategories]);
 
   const navigationKey = `${pathname}?${searchParams.toString()}`;
   const [searchInputState, setSearchInputState] = useState({

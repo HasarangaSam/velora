@@ -56,13 +56,15 @@ export default function ProductSearchInput({
   useEffect(() => {
     if (!showSuggestions) return;
     const query = value.trim();
-    if (query.length < 2) {
-      setSuggestions([]);
-      setSuggestionQuery("");
-      return;
-    }
     let cancelled = false;
     const timer = window.setTimeout(async () => {
+      if (query.length < 2) {
+        if (!cancelled) {
+          setSuggestions([]);
+          setSuggestionQuery("");
+        }
+        return;
+      }
       setLoading(true);
       try {
         const products = await searchProductsAction(query);
@@ -78,12 +80,13 @@ export default function ProductSearchInput({
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, 220);
+    }, query.length < 2 ? 0 : 220);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
   }, [value, showSuggestions]);
+
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {

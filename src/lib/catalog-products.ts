@@ -1,5 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { z } from "zod";
+
 import { prisma } from "@/lib/db/prisma";
 import { catalogQuerySchema } from "@/lib/validation/catalog";
 import { getCurrentPrice } from "@/lib/product-pricing";

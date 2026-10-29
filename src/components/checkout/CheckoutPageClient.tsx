@@ -122,7 +122,7 @@ export default function CheckoutPageClient({
     } finally {
       setLoading(false);
     }
-  }, [buyNowQuantity, buyNowVariantId]);
+  }, [buyNowQuantity, buyNowVariantId, initialCart]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadCheckoutData(), 0);
