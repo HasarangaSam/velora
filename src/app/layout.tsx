@@ -27,7 +27,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const categories = await getCachedCategoryTree();
+  const categories = await getCachedCategoryTree().catch(() => []);
 
   return (
     <html lang="en">
