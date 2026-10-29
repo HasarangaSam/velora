@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, Check, CheckCheck } from "lucide-react";
+import {
+  getUserNotificationsAction,
+  markNotificationsReadAction,
+} from "@/app/notifications/actions";
 
 type NotificationItem = {
   id: string;
@@ -24,9 +28,8 @@ export default function NotificationBell() {
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch("/api/notifications", { cache: "no-store" });
-      if (!response.ok) return;
-      const data = await response.json();
+      const data = await getUserNotificationsAction();
+      if (!data.success) return;
       setItems(data.notifications ?? []);
       setUnreadCount(data.unreadCount ?? 0);
     } catch {
@@ -67,11 +70,7 @@ export default function NotificationBell() {
   async function markRead(id?: string) {
     setBusy(true);
     try {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(id ? { id } : { all: true }),
-      });
+      await markNotificationsReadAction(id, !id);
       await refresh();
     } finally {
       setBusy(false);

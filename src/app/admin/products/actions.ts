@@ -488,3 +488,272 @@ export async function deleteProduct(productId: string): Promise<{
     return { success: false, message: "Unable to delete this product." };
   }
 }
+
+export type ProductImageActionResult = {
+  success: boolean;
+  message: string;
+  image?: {
+    id: string;
+    productId: string;
+    url: string;
+    publicId: string;
+    sortOrder: number;
+    isPrimary: boolean;
+  };
+};
+
+export async function uploadProductImageAction(
+  productId: string,
+  formData: FormData,
+): Promise<ProductImageActionResult> {
+  try {
+    await requireAdmin();
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true },
+    });
+
+    if (!product) {
+      return { success: false, message: "Product not found." };
+    }
+
+    const file = formData.get("image");
+
+    if (!(file instanceof File)) {
+      return { success: false, message: "Please select an image." };
+    }
+
+    if (!file.type.startsWith("image/")) {
+      return { success: false, message: "Only image files are allowed." };
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, message: "Image size must be 5 MB or less." };
+    }
+
+    const existingImageCount = await prisma.productImage.count({
+      where: { productId },
+    });
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    const uploadResult = await new Promise<{
+      secure_url: string;
+      public_id: string;
+    }>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "velora/products",
+          resource_type: "image",
+        },
+        (error, result) => {
+          if (error || !result) {
+            reject(error ?? new Error("Cloudinary upload failed."));
+            return;
+          }
+
+          resolve({
+            secure_url: result.secure_url,
+            public_id: result.public_id,
+          });
+        },
+      );
+
+      uploadStream.end(buffer);
+    });
+
+    const image = await prisma.productImage.create({
+      data: {
+        productId,
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        sortOrder: existingImageCount,
+        isPrimary: existingImageCount === 0,
+      },
+    });
+
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
+    revalidatePath("/");
+    revalidatePath(`/admin/products/${productId}`);
+
+    return {
+      success: true,
+      message: "Image uploaded successfully.",
+      image,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return { success: false, message: "Authentication required." };
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return { success: false, message: "Admin access required." };
+    }
+    console.error("Upload product image action error:", error);
+    return { success: false, message: "Unable to upload the image." };
+  }
+}
+
+export async function updateProductImageAction(
+  productId: string,
+  imageId: string,
+  action: "primary" | "move-left" | "move-right",
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await requireAdmin();
+
+    const image = await prisma.productImage.findFirst({
+      where: {
+        id: imageId,
+        productId,
+      },
+    });
+
+    if (!image) {
+      return { success: false, message: "Image not found." };
+    }
+
+    if (action === "primary") {
+      await prisma.$transaction(async (tx) => {
+        await tx.productImage.updateMany({
+          where: { productId },
+          data: { isPrimary: false },
+        });
+
+        await tx.productImage.update({
+          where: { id: imageId },
+          data: { isPrimary: true },
+        });
+      });
+
+      revalidateTag("products", "max");
+      revalidateTag("featured-products", "max");
+      revalidatePath("/");
+      revalidatePath(`/admin/products/${productId}`);
+
+      return { success: true, message: "Primary image updated successfully." };
+    }
+
+    if (action === "move-left" || action === "move-right") {
+      const direction = action === "move-left" ? "left" : "right";
+
+      const images = await prisma.productImage.findMany({
+        where: { productId },
+        orderBy: { sortOrder: "asc" },
+      });
+
+      const currentIndex = images.findIndex((img) => img.id === imageId);
+
+      if (currentIndex === -1) {
+        return { success: false, message: "Image not found." };
+      }
+
+      const targetIndex = direction === "left" ? currentIndex - 1 : currentIndex + 1;
+
+      if (targetIndex < 0 || targetIndex >= images.length) {
+        return {
+          success: false,
+          message: "Image is already at the edge of the current order.",
+        };
+      }
+
+      const currentImage = images[currentIndex];
+      const targetImage = images[targetIndex];
+
+      await prisma.$transaction([
+        prisma.productImage.update({
+          where: { id: currentImage.id },
+          data: { sortOrder: targetImage.sortOrder },
+        }),
+        prisma.productImage.update({
+          where: { id: targetImage.id },
+          data: { sortOrder: currentImage.sortOrder },
+        }),
+      ]);
+
+      return { success: true, message: "Image order updated successfully." };
+    }
+
+    return { success: false, message: "Invalid image action." };
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return { success: false, message: "Authentication required." };
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return { success: false, message: "Admin access required." };
+    }
+    console.error("Update product image action error:", error);
+    return { success: false, message: "Unable to update the image." };
+  }
+}
+
+export async function deleteProductImageAction(
+  productId: string,
+  imageId: string,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await requireAdmin();
+
+    const image = await prisma.productImage.findFirst({
+      where: {
+        id: imageId,
+        productId,
+      },
+    });
+
+    if (!image) {
+      return { success: false, message: "Image not found." };
+    }
+
+    const imageCount = await prisma.productImage.count({
+      where: { productId },
+    });
+
+    if (imageCount <= 1) {
+      return {
+        success: false,
+        message: "A product must have at least one image.",
+      };
+    }
+
+    await cloudinary.uploader.destroy(image.publicId);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.productImage.delete({
+        where: { id: imageId },
+      });
+
+      if (image.isPrimary) {
+        const nextImage = await tx.productImage.findFirst({
+          where: { productId },
+          orderBy: { sortOrder: "asc" },
+        });
+
+        if (nextImage) {
+          await tx.productImage.update({
+            where: { id: nextImage.id },
+            data: { isPrimary: true },
+          });
+        }
+      }
+    });
+
+    revalidateTag("products", "max");
+    revalidateTag("featured-products", "max");
+    revalidatePath("/");
+    revalidatePath(`/admin/products/${productId}`);
+
+    return { success: true, message: "Image deleted successfully." };
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return { success: false, message: "Authentication required." };
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return { success: false, message: "Admin access required." };
+    }
+    console.error("Delete product image action error:", error);
+    return { success: false, message: "Unable to delete the image." };
+  }
+}
+

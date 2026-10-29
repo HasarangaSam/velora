@@ -221,3 +221,23 @@ export async function deleteAddress(
     return { success: false, message: "Unable to delete address." };
   }
 }
+
+export async function getUserAddresses() {
+  try {
+    const user = await requireUser();
+    const addresses = await prisma.address.findMany({
+      where: { userId: user.id },
+      orderBy: [
+        { isDefault: "desc" },
+        { createdAt: "desc" },
+      ],
+    });
+    return { success: true, addresses };
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return { success: false, message: "Authentication required.", addresses: [] };
+    }
+    console.error("Get user addresses error:", error);
+    return { success: false, message: "Unable to load addresses.", addresses: [] };
+  }
+}

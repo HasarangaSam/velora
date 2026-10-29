@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search, X } from "lucide-react";
 import Image from "next/image";
 import { getCurrentPrice } from "@/lib/product-pricing";
+import { searchProductsAction } from "@/app/(shop)/shop/actions";
 
 type Suggestion = {
   name: string;
@@ -55,30 +56,32 @@ export default function ProductSearchInput({
   useEffect(() => {
     if (!showSuggestions) return;
     const query = value.trim();
-    const controller = new AbortController();
-    if (query.length < 2) return () => controller.abort();
+    if (query.length < 2) {
+      setSuggestions([]);
+      setSuggestionQuery("");
+      return;
+    }
+    let cancelled = false;
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const response = await fetch(
-          `/api/search?q=${encodeURIComponent(query)}`,
-          { signal: controller.signal },
-        );
-        const data = await response.json();
-        setSuggestions(data.products ?? []);
-        setSuggestionQuery(query);
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
+        const products = await searchProductsAction(query);
+        if (!cancelled) {
+          setSuggestions(products);
+          setSuggestionQuery(query);
+        }
+      } catch {
+        if (!cancelled) {
           setSuggestions([]);
           setSuggestionQuery(query);
         }
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 220);
     return () => {
+      cancelled = true;
       window.clearTimeout(timer);
-      controller.abort();
     };
   }, [value, showSuggestions]);
 

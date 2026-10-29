@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import AddressForm from "@/components/checkout/AddressForm";
+import { deleteAddress as deleteAddressAction } from "@/app/account/addresses/actions";
 
 export type CheckoutAddress = {
   id: string;
@@ -36,7 +37,7 @@ export default function AddressSelector({
 
   const [error, setError] = useState("");
 
-  async function deleteAddress(id: string) {
+  async function handleDeleteAddress(id: string) {
     const confirmed = window.confirm(
       "Are you sure you want to delete this address?",
     );
@@ -48,14 +49,10 @@ export default function AddressSelector({
     setError("");
 
     try {
-      const response = await fetch(`/api/addresses/${id}`, {
-        method: "DELETE",
-      });
+      const result = await deleteAddressAction(id);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message ?? "Unable to delete the address.");
+      if (!result.success) {
+        setError(result.message ?? "Unable to delete the address.");
         return;
       }
 
@@ -160,7 +157,7 @@ export default function AddressSelector({
 
                 <button
                   type="button"
-                  onClick={() => deleteAddress(address.id)}
+                  onClick={() => handleDeleteAddress(address.id)}
                   className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
                   aria-label="Delete address"
                 >

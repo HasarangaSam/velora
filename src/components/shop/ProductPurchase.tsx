@@ -7,6 +7,7 @@ import { ArrowRight, Check, Minus, Plus, ShoppingCart } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store";
 import { getCurrentPrice, getDiscountPercent } from "@/lib/product-pricing";
+import { addToCartAction } from "@/app/(shop)/cart/actions";
 
 type ProductVariant = {
   id: string;
@@ -114,27 +115,16 @@ export default function ProductPurchase({
 
     try {
       if (status === "authenticated") {
-        const response = await fetch("/api/cart", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            variantId: selectedVariant.id,
-            quantity,
-          }),
-        });
+        const result = await addToCartAction(selectedVariant.id, quantity);
 
-        const data = await response.json();
-
-        if (!response.ok) {
+        if (!result.success) {
           setAddedSuccess(false);
-          setMessage(data.message ?? "Unable to add the item.");
+          setMessage(result.message ?? "Unable to add the item.");
           return;
         }
 
-        if (data.cart?.items) {
-          useCartStore.getState().replaceItems(data.cart.items);
+        if (result.cart?.items) {
+          useCartStore.getState().replaceItems(result.cart.items);
         }
 
         setAddedSuccess(true);

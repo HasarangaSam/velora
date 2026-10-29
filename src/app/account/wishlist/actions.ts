@@ -55,3 +55,14 @@ export async function setWishlistItem(productId: string, isSaved: boolean): Prom
     return { success: false, isSaved: !isSaved, message: "Unable to update your wishlist. Please try again." };
   }
 }
+
+export async function getWishlistCount(): Promise<number> {
+  try {
+    const user = await requireUser();
+    return await prisma.wishlistItem.count({
+      where: { userId: user.id, product: { isActive: true } },
+    });
+  } catch {
+    return 0;
+  }
+}

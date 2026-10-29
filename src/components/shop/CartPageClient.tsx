@@ -7,19 +7,30 @@ import { useSession } from "next-auth/react";
 import CartItem from "@/components/shop/CartItem";
 import { useCartStore } from "@/store";
 import type { CartData, CartItemData } from "@/types/cart";
+import {
+  getCartAction,
+  removeCartItemAction,
+  updateCartItemQuantityAction,
+} from "@/app/(shop)/cart/actions";
 
 // The cart page supports both signed-in and guest flows by switching between server-side cart state
 // and the local Zustand cart store.
-export default function CartPageClient() {
+export default function CartPageClient({
+  initialCart,
+}: {
+  initialCart?: CartData | null;
+} = {}) {
   const { status } = useSession();
 
   const guestItems = useCartStore((state) => state.items);
   const updateGuestQuantity = useCartStore((state) => state.updateQuantity);
   const removeGuestItem = useCartStore((state) => state.removeItem);
 
-  const [serverCart, setServerCart] = useState<CartData | null>(null);
+  const [serverCart, setServerCart] = useState<CartData | null>(
+    initialCart ?? null,
+  );
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialCart && status === "authenticated");
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,21 +39,17 @@ export default function CartPageClient() {
 
     async function loadCart() {
       try {
-        setLoading(true);
+        if (!initialCart) setLoading(true);
 
-        const response = await fetch("/api/cart", {
-          cache: "no-store",
-        });
+        const result = await getCartAction();
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message ?? "Unable to load the cart.");
+        if (!result.success || !result.cart) {
+          throw new Error(result.message ?? "Unable to load the cart.");
         }
 
-        setServerCart(data);
-        if (data.items) {
-          useCartStore.getState().replaceItems(data.items);
+        setServerCart(result.cart);
+        if (result.cart.items) {
+          useCartStore.getState().replaceItems(result.cart.items);
         }
       } catch (err) {
         setError(
@@ -54,7 +61,7 @@ export default function CartPageClient() {
     }
 
     loadCart();
-  }, [status]);
+  }, [status, initialCart]);
 
   const items: CartItemData[] =
     status === "authenticated" ? (serverCart?.items ?? []) : guestItems;
@@ -68,7 +75,7 @@ export default function CartPageClient() {
         );
 
   const cartIsLoading =
-    status === "loading" || (status === "authenticated" && loading);
+    status === "loading" || (status === "authenticated" && loading && !serverCart);
 
   async function updateServerItem(item: CartItemData, quantity: number) {
     if (!item.id) {
@@ -79,26 +86,16 @@ export default function CartPageClient() {
     setError("");
 
     try {
-      const response = await fetch(`/api/cart/${item.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          quantity,
-        }),
-      });
+      const result = await updateCartItemQuantityAction(item.id, quantity);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message ?? "Unable to update the cart.");
+      if (!result.success || !result.cart) {
+        setError(result.message ?? "Unable to update the cart.");
         return;
       }
 
-      setServerCart(data.cart);
-      if (data.cart?.items) {
-        useCartStore.getState().replaceItems(data.cart.items);
+      setServerCart(result.cart);
+      if (result.cart.items) {
+        useCartStore.getState().replaceItems(result.cart.items);
       }
     } catch {
       setError("Unable to update the cart.");
@@ -116,20 +113,16 @@ export default function CartPageClient() {
     setError("");
 
     try {
-      const response = await fetch(`/api/cart/${item.id}`, {
-        method: "DELETE",
-      });
+      const result = await removeCartItemAction(item.id);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message ?? "Unable to remove the item.");
+      if (!result.success || !result.cart) {
+        setError(result.message ?? "Unable to remove the item.");
         return;
       }
 
-      setServerCart(data.cart);
-      if (data.cart?.items) {
-        useCartStore.getState().replaceItems(data.cart.items);
+      setServerCart(result.cart);
+      if (result.cart.items) {
+        useCartStore.getState().replaceItems(result.cart.items);
       }
     } catch {
       setError("Unable to remove the item.");

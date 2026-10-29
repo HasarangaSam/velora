@@ -16,6 +16,12 @@ import {
 import AddressSelector, {
   type CheckoutAddress,
 } from "@/components/checkout/AddressSelector";
+import { getUserAddresses } from "@/app/account/addresses/actions";
+import { getCartAction } from "@/app/(shop)/cart/actions";
+import {
+  createOrderAction,
+  validateCouponAction,
+} from "@/app/(shop)/checkout/actions";
 import { useCartStore } from "@/store";
 import { SHIPPING_COST } from "@/lib/checkout";
 
@@ -37,19 +43,30 @@ type CouponState =
 // validating coupons, and creating the order before redirecting to payment.
 export default function CheckoutPageClient({
   buyNow,
+  initialAddresses,
+  initialCart,
 }: {
   buyNow?: { variantId: string; quantity: number };
+  initialAddresses?: CheckoutAddress[];
+  initialCart?: CartData | null;
 }) {
   const router = useRouter();
   const buyNowVariantId = buyNow?.variantId;
   const buyNowQuantity = buyNow?.quantity;
-  const [cart, setCart] = useState<CartData | null>(null);
-  const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
+  const [cart, setCart] = useState<CartData | null>(initialCart ?? null);
+  const [addresses, setAddresses] = useState<CheckoutAddress[]>(
+    initialAddresses ?? [],
+  );
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
-    null,
+    () => {
+      const defaultAddr =
+        initialAddresses?.find((address) => address.isDefault) ??
+        initialAddresses?.[0];
+      return defaultAddr?.id ?? null;
+    },
   );
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialCart);
   const [loadError, setLoadError] = useState("");
   const [submitError, setSubmitError] = useState("");
 
@@ -62,43 +79,42 @@ export default function CheckoutPageClient({
 
   const loadCheckoutData = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!initialCart) setLoading(true);
       setLoadError("");
 
-      const cartUrl = buyNowVariantId
-        ? `/api/cart?buyNowVariantId=${encodeURIComponent(buyNowVariantId)}&quantity=${buyNowQuantity}`
-        : "/api/cart";
-      const [cartResponse, addressResponse] = await Promise.all([
-        fetch(cartUrl, {
-          cache: "no-store",
-        }),
-        fetch("/api/addresses", {
-          cache: "no-store",
-        }),
+      const [cartResult, addressResult] = await Promise.all([
+        getCartAction(buyNowVariantId, buyNowQuantity),
+        getUserAddresses(),
       ]);
 
-      const cartData = await cartResponse.json();
-      const addressData = await addressResponse.json();
-
-      if (!cartResponse.ok) {
-        throw new Error(cartData.message ?? "Unable to load your cart.");
+      if (!cartResult.success || !cartResult.cart) {
+        throw new Error(cartResult.message ?? "Unable to load your cart.");
       }
 
-      if (!addressResponse.ok) {
+      if (!addressResult.success) {
         throw new Error(
-          addressData.message ?? "Unable to load your addresses.",
+          addressResult.message ?? "Unable to load your addresses.",
         );
       }
 
-      setCart(cartData);
-      setAddresses(addressData.addresses);
+      setCart(cartResult.cart);
+      setAddresses(addressResult.addresses);
 
-      const defaultAddress =
-        addressData.addresses.find(
-          (address: CheckoutAddress) => address.isDefault,
-        ) ?? addressData.addresses[0];
-
-      setSelectedAddressId(defaultAddress?.id ?? null);
+      setSelectedAddressId((currentSelected) => {
+        if (
+          currentSelected &&
+          addressResult.addresses.some(
+            (address: CheckoutAddress) => address.id === currentSelected,
+          )
+        ) {
+          return currentSelected;
+        }
+        const defaultAddress =
+          addressResult.addresses.find(
+            (address: CheckoutAddress) => address.isDefault,
+          ) ?? addressResult.addresses[0];
+        return defaultAddress?.id ?? null;
+      });
     } catch (err) {
       setLoadError(
         err instanceof Error ? err.message : "Unable to load checkout.",
@@ -137,29 +153,7 @@ export default function CheckoutPageClient({
     setSubmitError("");
 
     try {
-      const response = await fetch("/api/coupons/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ couponCode: code, subtotal }),
-      });
-
-      const data = (await response.json()) as {
-        valid?: boolean;
-        message?: string;
-        discount?: number;
-        shippingCost?: number;
-        total?: number;
-        couponCode?: string;
-      };
-
-      if (!response.ok) {
-        setCoupon({
-          status: "invalid",
-          message: data.message ?? "Unable to validate coupon.",
-        });
-        setCouponCode("");
-        return;
-      }
+      const data = await validateCouponAction(code, subtotal);
 
       if (data.valid) {
         setCoupon({
@@ -231,18 +225,12 @@ export default function CheckoutPageClient({
         );
       }
 
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": checkoutRequest.current.key,
-        },
-        body: JSON.stringify(orderRequest),
-      });
+      const data = await createOrderAction(
+        orderRequest,
+        checkoutRequest.current.key,
+      );
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (!data.success || !data.order) {
         setSubmitError(data.message ?? "Unable to create your order.");
         return;
       }

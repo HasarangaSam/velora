@@ -1,10 +1,20 @@
-import { NextResponse } from "next/server";
+"use server";
+
 import { prisma } from "@/lib/db/prisma";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const query = (searchParams.get("q") ?? "").trim().slice(0, 100);
-  if (query.length < 2) return NextResponse.json({ products: [] });
+export type SearchProductSuggestion = {
+  name: string;
+  slug: string;
+  image: string | null;
+  price: string;
+  salePrice: string | null;
+};
+
+export async function searchProductsAction(
+  rawQuery: string,
+): Promise<SearchProductSuggestion[]> {
+  const query = (rawQuery ?? "").trim().slice(0, 100);
+  if (query.length < 2) return [];
 
   const products = await prisma.product.findMany({
     where: {
@@ -26,13 +36,11 @@ export async function GET(request: Request) {
     },
   });
 
-  return NextResponse.json({
-    products: products.map((product) => ({
-      name: product.name,
-      slug: product.slug,
-      image: product.images[0]?.url ?? null,
-      price: product.price.toString(),
-      salePrice: product.salePrice?.toString() ?? null,
-    })),
-  });
+  return products.map((product) => ({
+    name: product.name,
+    slug: product.slug,
+    image: product.images[0]?.url ?? null,
+    price: product.price.toString(),
+    salePrice: product.salePrice?.toString() ?? null,
+  }));
 }

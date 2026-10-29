@@ -3,6 +3,11 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ImagePlus, Star, Trash2 } from "lucide-react";
+import {
+  deleteProductImageAction,
+  updateProductImageAction,
+  uploadProductImageAction,
+} from "@/app/admin/products/actions";
 
 type ProductImage = {
   id: string;
@@ -73,22 +78,14 @@ export default function ProductImageManager({
         const formData = new FormData();
         formData.append("image", file);
 
-        const response = await fetch(
-          `/api/admin/products/${productId}/images`,
-          {
-            method: "POST",
-            body: formData,
-          },
-        );
+        const result = await uploadProductImageAction(productId, formData);
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          failures.push(`${file.name} (${data.message ?? "upload failed"})`);
+        if (!result.success || !result.image) {
+          failures.push(`${file.name} (${result.message ?? "upload failed"})`);
           continue;
         }
 
-        setImages((current) => [...current, data.image]);
+        setImages((current) => [...current, result.image!]);
         successCount++;
       } catch {
         failures.push(`${file.name} (network error)`);
@@ -156,24 +153,11 @@ export default function ProductImageManager({
     setError(false);
 
     try {
-      const response = await fetch(
-        `/api/admin/products/${productId}/images/${imageId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action,
-          }),
-        },
-      );
+      const result = await updateProductImageAction(productId, imageId, action);
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (!result.success) {
         setError(true);
-        setMessage(data.message ?? "Unable to update image.");
+        setMessage(result.message ?? "Unable to update image.");
         return;
       }
 
@@ -210,7 +194,7 @@ export default function ProductImageManager({
         });
       }
 
-      setMessage(data.message);
+      setMessage(result.message);
     } catch {
       setError(true);
       setMessage("Unable to connect to the server.");
@@ -233,18 +217,11 @@ export default function ProductImageManager({
     setError(false);
 
     try {
-      const response = await fetch(
-        `/api/admin/products/${productId}/images/${image.id}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const result = await deleteProductImageAction(productId, image.id);
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (!result.success) {
         setError(true);
-        setMessage(data.message ?? "Unable to delete image.");
+        setMessage(result.message ?? "Unable to delete image.");
         return;
       }
 

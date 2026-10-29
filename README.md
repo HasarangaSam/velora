@@ -15,18 +15,18 @@ This is a portfolio project built to demonstrate application architecture and co
 
 ## Architecture
 
-| Layer          | Implementation                                                                                                                                                                |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Application    | Next.js 16 App Router, React 19, TypeScript 5; server components for data-driven pages, client components for interactive UI, route handlers and server actions for mutations |
-| Routing Proxy  | Next.js 16 `src/proxy.ts` for optimistic session/role pre-filtering across protected `/admin/*` and `/account/*` routes                                                       |
-| Persistence    | PostgreSQL with Prisma ORM 7 and the `@prisma/adapter-pg` driver adapter                                                                                                      |
-| Authentication | Auth.js / NextAuth v5 with JWT sessions, Prisma adapter, credentials and optional Google provider                                                                             |
-| Validation     | Zod schemas shared at request boundaries; server-side authorization for user and admin operations                                                                             |
-| Client state   | Zustand cart and wishlist state persisted in the browser, with cart synchronization for signed-in customers and optimistic wishlist toggles before server reconciliation      |
-| Caching        | Next.js 16 `use cache` directive with `cacheLife` and `cacheTag` for declarative server-component and function-level caching; `revalidateTag` for targeted invalidation      |
-| Integrations   | PayHere, Cloudinary, Nodemailer over SMTP, and Redis exclusively for security rate limits and auth throttling                                                                 |
-| UI             | Tailwind CSS 4 and Lucide React                                                                                                                                               |
-| Quality        | ESLint, TypeScript checks, Vitest, GitHub Actions, Docker                                                                                                                     |
+| Layer          | Implementation                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application    | Next.js 16 App Router, React 19, TypeScript 5; server components fetch data directly from the database, client components handle interactive UI, server actions for all mutations |
+| Routing Proxy  | Next.js 16 `src/proxy.ts` for optimistic session/role pre-filtering across protected `/admin/*` and `/account/*` routes                                                   |
+| Persistence    | PostgreSQL with Prisma ORM 7 and the `@prisma/adapter-pg` driver adapter                                                                                                  |
+| Authentication | Auth.js / NextAuth v5 with JWT sessions, Prisma adapter, credentials and optional Google provider                                                                         |
+| Validation     | Zod schemas shared at request boundaries; server-side authorization for user and admin operations                                                                         |
+| Client state   | Zustand cart and wishlist state persisted in the browser, with cart synchronization for signed-in customers and optimistic wishlist toggles before server reconciliation   |
+| Caching        | Next.js 16 `use cache` directive with `cacheLife` and `cacheTag` for declarative server-component and function-level caching; `revalidateTag` for targeted invalidation   |
+| Integrations   | PayHere, Cloudinary, Nodemailer over SMTP, and Redis exclusively for security rate limits and auth throttling                                                              |
+| UI             | Tailwind CSS 4 and Lucide React                                                                                                                                           |
+| Quality        | ESLint, TypeScript checks, Vitest, GitHub Actions, Docker                                                                                                                 |
 
 ### Request and data flow
 
@@ -34,13 +34,16 @@ This is a portfolio project built to demonstrate application architecture and co
 Browser
   ├── Next.js 16 Proxy (src/proxy.ts)
   │       └── Optimistic session and role pre-filtering (/admin/*, /account/*)
-  ├── App Router pages / server actions
-  └── Route handlers (/api/*)
-          ├── Auth.js session + role checks (requireAdmin / requireUser)
-          ├── Zod request validation
-          ├── Domain helpers (pricing, checkout, reviews, notifications)
-          ├── Prisma Client → PostgreSQL
-          └── External services (PayHere, SMTP, Cloudinary, optional Redis)
+  └── App Router
+          ├── Server Components → direct Prisma queries (no fetch round-trip)
+          ├── Server Actions → mutations, form handling, cache invalidation
+          │       ├── Auth guards (requireAdmin / requireUser)
+          │       ├── Zod validation
+          │       ├── Domain helpers (pricing, checkout, reviews, notifications)
+          │       └── Prisma Client → PostgreSQL
+          └── Route Handlers (/api/*) — only where a real HTTP endpoint is required
+                  ├── /api/auth/[...nextauth]  — Auth.js OAuth callbacks and session
+                  └── /api/payments/payhere/notify  — verified PayHere webhook
 ```
 
 Business rules are kept on the server. Client-side totals and form validation support the user experience, but they are not trusted when creating orders, applying coupons, updating inventory, or processing payment notifications.
@@ -83,7 +86,7 @@ The server recomputes checkout totals from database records rather than acceptin
 - Credential login failures are throttled at 20 per normalized email and 60 per trusted client IP per 15-minute window when a trusted IP is configured. Identifiers are HMAC-hashed before they are used as Redis keys; sign-in is denied in production if Redis is unavailable.
 - Registration verification codes are HMAC-digested at rest, expire after 15 minutes, allow at most five incorrect attempts, and are consumed once when used. Resend and password-reset requests have per-email throttles and trusted-IP throttles where available.
 - Password-reset links use 256-bit random tokens. Only an HMAC digest is stored, and token consumption and password/session-version updates happen in one transaction. Email delivery failures never log recovery secrets in production; the local development fallback can print them to the developer console.
-- User and administrator operations employ multi-layered authorization: Next.js 16 request proxy (`src/proxy.ts`) pre-filters unauthenticated visitors and non-admins at the edge before rendering, `AdminLayout` guards the administration route tree, every admin page runs `await requireAdmin()`, and all Server Actions and `/api/admin/*` route handlers verify administrator permissions at the data/action layer. Customers can manage their profile, saved addresses, orders, wishlist, and reviews.
+- User and administrator operations employ multi-layered authorization: Next.js 16 request proxy (`src/proxy.ts`) pre-filters unauthenticated visitors and non-admins at the edge before rendering, `AdminLayout` guards the administration route tree, every admin page runs `await requireAdmin()`, and all Server Actions verify administrator permissions at the data/action layer. Customers can manage their profile, saved addresses, orders, wishlist, and reviews.
 - A customer can review a product only after a paid, non-cancelled purchase. Reviews are unique per customer/product and require moderation before appearing in the public product review list.
 
 ### Caching strategy
@@ -129,19 +132,35 @@ Cache entries are invalidated with `revalidateTag` after admin mutations (produc
 | `/account/*`                               | Profile, addresses, orders, wishlist, and reviews                 |
 | `/admin/*`                                 | Admin dashboard and management workflows                          |
 
-### API surface
+### Server Actions
 
-Route handlers are under `src/app/api`:
+Mutations are handled entirely by Server Actions co-located with the route they serve. There are no intermediate API fetch calls from client components to internal endpoints.
 
-- `/api/search` — product suggestions.
-- `/api/cart`, `/api/cart/[itemId]`, `/api/cart/sync` — cart reads, mutations, and guest-cart synchronization.
-- `/api/orders`, `/api/orders/[id]` — idempotent order creation and customer-scoped order access.
-- `/api/addresses`, `/api/addresses/[id]` — customer address operations.
-- `/api/coupons/validate` — coupon preview; checkout applies authoritative validation again.
-- `/api/payments/payhere/notify` — verified PayHere server callback.
-- `/api/notifications`, `/api/wishlist/count` — account notification and wishlist data.
-- `/api/admin/*` — guarded product, variant, image, and category operations.
-- `/api/auth/[...nextauth]` — Auth.js handlers.
+| Module | Actions |
+| ------ | ------- |
+| `(shop)/cart/actions.ts` | Add, update, remove cart items; sync guest cart on sign-in |
+| `(shop)/checkout/actions.ts` | Validate coupon, create order, generate PayHere hash |
+| `(shop)/shop/actions.ts` | Product search suggestions |
+| `account/addresses/actions.ts` | Create, update, delete saved addresses |
+| `account/profile/actions.ts` | Update profile details and password |
+| `account/reviews/actions.ts` | Submit and delete customer reviews |
+| `account/wishlist/actions.ts` | Toggle wishlist items |
+| `notifications/actions.ts` | Fetch and mark notifications read |
+| `admin/products/actions.ts` | Create, update, delete products, variants, and images |
+| `admin/categories/actions.ts` | Create, update, delete categories |
+| `admin/orders/actions.ts` | Update order status, cancel orders |
+| `admin/coupons/actions.ts` | Create, update, delete coupons |
+| `admin/reviews/actions.ts` | Approve, reject, delete reviews |
+| `admin/users/actions.ts` | View and manage customer accounts |
+
+### Route Handlers
+
+Only two real HTTP endpoints remain — both require a public URL that an external service can POST to:
+
+| Endpoint | Purpose |
+| -------- | ------- |
+| `/api/auth/[...nextauth]` | Auth.js OAuth callbacks, CSRF, and session cookie management |
+| `/api/payments/payhere/notify` | Verified PayHere server-to-server payment notification |
 
 ## Data model
 
@@ -268,7 +287,13 @@ For Vercel, configure `DATABASE_URL`, `AUTH_SECRET`, and `NEXT_PUBLIC_APP_URL` i
 
 ```text
 src/
-  app/                 App Router pages, layouts, server actions, and API routes
+  app/                 App Router pages, layouts, and server actions
+    (shop)/            Storefront routes (cart, checkout, shop, products)
+    (auth)/            Authentication routes (login, register, verify-email, etc.)
+    account/           Customer account routes (profile, addresses, orders, wishlist, reviews)
+    admin/             Admin routes (dashboard, products, categories, orders, coupons, reviews, users)
+    api/               Minimal HTTP endpoints (NextAuth, PayHere webhook only)
+    notifications/     Notification server action
   components/          Storefront, checkout, account, admin, auth, and layout UI
   lib/                 Domain logic, validation, auth guards, integrations, database
   store/               Zustand cart and wishlist state, persistence, and client-side sync helpers
@@ -284,6 +309,9 @@ Dockerfile             Multi-stage standalone production image
 
 ## Engineering notes
 
+- **Server Components fetch data directly.** Data-fetching pages and layouts call Prisma directly without an intermediate HTTP round-trip. This eliminates client-side loading waterfalls and reduces bundle size.
+- **Server Actions handle all mutations.** Every form submission, cart update, order creation, admin operation, and coupon validation goes through a co-located Server Action with auth guards and Zod validation at the action layer. There are no internal `fetch('/api/...')` calls from client components.
+- **Only two route handlers exist.** `/api/auth/[...nextauth]` and `/api/payments/payhere/notify` are genuine HTTP endpoints that third-party services (Auth.js OAuth infrastructure and PayHere) must POST to. Everything else is a Server Action.
 - **Money uses PostgreSQL `Decimal` columns.** The current domain helpers convert values to JavaScript numbers for calculations and presentation; order and payment totals are persisted to two-decimal `Decimal` columns. Financial arithmetic at larger scale would benefit from integer minor units or decimal arithmetic end-to-end.
 - **Inventory is reserved at payment confirmation, not when the pending order is created.** Checkout validates stock, then the payment callback conditionally decrements stock inside a serializable transaction. This avoids leaving unpaid orders holding inventory, while creating a possible payment-success/stock-race case that is surfaced as a conflict for operations to resolve.
 - **Caching is declarative via Next.js `use cache`.** Data-fetching functions opt in to caching at their own boundary using `cacheLife` and `cacheTag`. Mutations invalidate specific tags with `revalidateTag`, so only the affected data is flushed rather than clearing cache patterns broadly. Redis is scoped to security throttling only and no longer participates in the catalog cache path.

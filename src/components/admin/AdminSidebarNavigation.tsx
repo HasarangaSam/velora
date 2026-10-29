@@ -11,6 +11,7 @@ import {
   Users,
   MessageSquareText,
 } from "lucide-react";
+import { getAdminSidebarCountsAction } from "@/app/admin/actions";
 
 type SidebarCounts = {
   orders: number;
@@ -26,27 +27,12 @@ export default function AdminSidebarNavigation({
 }) {
   const [counts, setCounts] = useState(initialCounts);
 
-  const refreshCounts = useCallback(async (signal?: AbortSignal) => {
+  const refreshCounts = useCallback(async () => {
     try {
-      const response = await fetch("/api/admin/sidebar-counts", {
-        cache: "no-store",
-        signal,
-      });
-      if (!response.ok) return;
-
-      const data: unknown = await response.json();
-      if (
-        typeof data !== "object" || data === null ||
-        !("orders" in data) || !("reviews" in data)
-      ) return;
+      const data = await getAdminSidebarCountsAction();
+      if (!data) return;
 
       const { orders, reviews } = data;
-      if (
-        typeof orders !== "number" || typeof reviews !== "number" ||
-        !Number.isSafeInteger(orders) || !Number.isSafeInteger(reviews) ||
-        orders < 0 || reviews < 0
-      ) return;
-
       setCounts((current) =>
         current.orders === orders && current.reviews === reviews
           ? current
@@ -58,30 +44,28 @@ export default function AdminSidebarNavigation({
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
     const initialRefresh = window.setTimeout(
-      () => void refreshCounts(controller.signal),
+      () => void refreshCounts(),
       0,
     );
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") {
-        void refreshCounts(controller.signal);
+        void refreshCounts();
       }
     }, COUNT_REFRESH_INTERVAL);
-    const handleFocus = () => void refreshCounts(controller.signal);
+    const handleFocus = () => void refreshCounts();
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void refreshCounts(controller.signal);
+        void refreshCounts();
       }
     };
-    const handleAdminRefresh = () => void refreshCounts(controller.signal);
+    const handleAdminRefresh = () => void refreshCounts();
 
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("notifications:refresh", handleAdminRefresh);
 
     return () => {
-      controller.abort();
       window.clearTimeout(initialRefresh);
       window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);

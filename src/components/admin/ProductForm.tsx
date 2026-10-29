@@ -8,6 +8,7 @@ import { getCategoryDisplayName } from "@/lib/category-display";
 import { hasDuplicateProductVariantOptions } from "@/lib/validation/product";
 import {
   createProduct,
+  uploadProductImageAction,
   type ProductActionState,
 } from "@/app/admin/products/actions";
 import SubmitButton from "./SubmitButton";
@@ -89,13 +90,9 @@ export default function ProductForm({
         try {
           const body = new FormData();
           body.append("image", file);
-          const response = await fetch(
-            `/api/admin/products/${productId}/images`,
-            { method: "POST", body },
-          );
-          const data = await response.json();
-          if (!response.ok)
-            failures.push(`${file.name} (${data.message ?? "upload failed"})`);
+          const result = await uploadProductImageAction(productId, body);
+          if (!result.success)
+            failures.push(`${file.name} (${result.message ?? "upload failed"})`);
         } catch {
           failures.push(`${file.name} (network error)`);
         }

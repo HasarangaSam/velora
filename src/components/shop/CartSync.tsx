@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store";
+import { getCartAction, syncGuestCartAction } from "@/app/(shop)/cart/actions";
 
 const CART_SYNCED_KEY = "velora-cart-synced";
 
@@ -40,39 +41,25 @@ export default function CartSync() {
 
         if (currentItems.length > 0 && !alreadySynced) {
           // Guest items present and not yet synced — merge into DB cart
-          const response = await fetch("/api/cart/sync", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              items: currentItems.map((item) => ({
-                variantId: item.variantId,
-                quantity: item.quantity,
-              })),
-            }),
-          });
+          const result = await syncGuestCartAction(
+            currentItems.map((item) => ({
+              variantId: item.variantId,
+              quantity: item.quantity,
+            })),
+          );
 
-          if (response.ok) {
-            const data = await response.json();
-            if (data.cart?.items) {
-              // Mark this session as synced BEFORE replacing items so that
-              // any re-render triggered by replaceItems doesn't sync again.
-              sessionStorage.setItem(CART_SYNCED_KEY, "1");
-              replaceItems(data.cart.items);
-            }
+          if (result.success && result.cart?.items) {
+            // Mark this session as synced BEFORE replacing items so that
+            // any re-render triggered by replaceItems doesn't sync again.
+            sessionStorage.setItem(CART_SYNCED_KEY, "1");
+            replaceItems(result.cart.items);
           }
         } else {
           // No unsynced guest items — just load the user's existing DB cart
-          const response = await fetch("/api/cart", {
-            cache: "no-store",
-          });
+          const result = await getCartAction();
 
-          if (response.ok) {
-            const data = await response.json();
-            if (data.items) {
-              replaceItems(data.items);
-            }
+          if (result.success && result.cart?.items) {
+            replaceItems(result.cart.items);
           }
         }
       } catch (error) {

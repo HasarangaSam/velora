@@ -5,6 +5,7 @@ import AuthSessionProvider from "@/components/auth/SessionProvider";
 import CartSync from "@/components/shop/CartSync";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { getCachedCategoryTree } from "@/lib/categories";
 import "./globals.css";
 
 const inter = localFont({
@@ -21,18 +22,20 @@ export const metadata: Metadata = {
   description: "Modern, comfortable clothing designed for everyday Sri Lankan living.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const categories = await getCachedCategoryTree();
+
   return (
     <html lang="en">
       <body className={`${inter.className} min-h-screen flex flex-col bg-white text-slate-900`}>
         <AuthSessionProvider>
           <CartSync />
           <Suspense fallback={<div aria-hidden="true" className="h-16 border-b border-slate-200 bg-white md:h-20" />}>
-            <Navbar />
+            <Navbar initialCategories={categories} />
           </Suspense>
           <div className="flex-1">{children}</div>
           <Suspense fallback={null}>

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db/prisma";
+import { getCartAction } from "@/app/(shop)/cart/actions";
 import CheckoutPageClient from "@/components/checkout/CheckoutPageClient";
 
 type CheckoutPageProps = {
@@ -26,8 +28,18 @@ export default async function CheckoutPage({
     redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
   }
 
+  const [addresses, cartResult] = await Promise.all([
+    prisma.address.findMany({
+      where: { userId: session.user.id },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    }),
+    getCartAction(params.buyNowVariantId, params.quantity ? Number(params.quantity) : 1),
+  ]);
+
   return (
     <CheckoutPageClient
+      initialAddresses={addresses}
+      initialCart={cartResult.cart ?? null}
       buyNow={
         params.buyNowVariantId
           ? {

@@ -19,6 +19,7 @@ import {
 import ProductSearchInput from "@/components/shop/ProductSearchInput";
 import NotificationBell from "@/components/layout/NotificationBell";
 import { getCategoryDisplayName } from "@/lib/category-display";
+import { getWishlistCount } from "@/app/account/wishlist/actions";
 
 const subscribeToNothing = () => () => {};
 
@@ -76,7 +77,11 @@ const CATEGORY_CONFIGS: CategoryDropdownConfig[] = [
   },
 ];
 
-export default function Navbar() {
+type NavbarProps = {
+  initialCategories?: NavCategoryRecord[];
+};
+
+export default function Navbar({ initialCategories }: NavbarProps = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -96,8 +101,16 @@ export default function Navbar() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileExpandedCategories, setMobileExpandedCategories] = useState<Record<string, boolean>>({});
-  const [categoriesData, setCategoriesData] = useState<NavCategoryRecord[]>([]);
+  const [categoriesData, setCategoriesData] = useState<NavCategoryRecord[]>(
+    initialCategories ?? [],
+  );
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      setCategoriesData(initialCategories);
+    }
+  }, [initialCategories]);
 
   const navigationKey = `${pathname}?${searchParams.toString()}`;
   const [searchInputState, setSearchInputState] = useState({
@@ -122,21 +135,6 @@ export default function Navbar() {
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/categories")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: NavCategoryRecord[]) => {
-        if (!cancelled && Array.isArray(data) && data.length > 0) {
-          setCategoriesData(data);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
     };
   }, []);
 
@@ -189,10 +187,9 @@ export default function Navbar() {
       return () => { cancelled = true; };
     }
 
-    fetch("/api/wishlist/count", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : { count: 0 })
-      .then((data: { count?: number }) => {
-        if (!cancelled) setWishlistCount(data.count ?? 0);
+    getWishlistCount()
+      .then((count) => {
+        if (!cancelled) setWishlistCount(count);
       })
       .catch(() => {
         if (!cancelled) setWishlistCount(0);
